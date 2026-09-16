@@ -95,7 +95,7 @@ def _backend(opts: _Options, logger: Logger):
     from ..backends.profile import NixProfile
 
     return NixProfile(
-        profile_path=opts.profile or str(_paths(opts).profile_file),
+        profile_path=opts.profile,
         logger=logger,
     )
 
@@ -252,7 +252,7 @@ def _cmd_promote(argv: Sequence[str], opts: _Options) -> int:
             return 1
         group = manager.get(canonical)
         group_plan.append((canonical, list(group.packages)))
-    root = discover_root(opts.config_root, dry_run=opts.dry_run)
+    root = discover_root(opts.config_root)
     model = discover(root)
     history = PromotionHistory(paths.history_dir / "promotions.toml")
 
@@ -443,6 +443,159 @@ def _cmd_resolve(argv: Sequence[str], opts: _Options) -> int:
     return 0
 
 
+# ---------------------------------------------------------------------------
+# Query operations: -L list / -F find / -V validate (spec §22, §§13-16)
+# ---------------------------------------------------------------------------
+
+
+def _cmd_list(argv: Sequence[str], opts: _Options, head: str) -> int:
+    from ..cli.query import (
+        QueryError,
+        discover_config,
+        list_declarations,
+        list_summary,
+        list_tree,
+        orphaned_names,
+    )
+
+    paths = _paths(opts)
+    logger = opts.logger
+    repository = GroupRepository(paths)
+    manager = GroupManager(repository, logger=logger)
+
+    merged = head[2:] if head.startswith("-L") else ""
+    detailed = "G" in merged
+    config = "c" in merged
+    orphans = "o" in merged
+
+    for tok in argv:
+        if tok in ("--groups", "-G"):
+            detailed = True
+        elif tok in ("--config", "-c"):
+            config = True
+        elif tok in ("--orphans", "-o"):
+            orphans = True
+
+    if config or orphans:
+        model, decls = discover_config(opts.config_root)
+        if orphans:
+            decls = orphaned_names(manager, model, opts.config_root)
+        print(list_declarations(decls))
+        return 0
+
+    if detailed:
+        print(list_tree(manager.all_groups()))
+    else:
+        print(list_summary(manager.all_groups()))
+    return 0
+
+
+def _cmd_find(argv: Sequence[str], opts: _Options, head: str) -> int:
+    from ..cli.query import (
+        QueryError,
+        discover_config,
+        find_groups,
+        orphaned_names,
+        parse_find_tokens,
+    )
+
+    paths = _paths(opts)
+    logger = opts.logger
+    repository = GroupRepository(paths)
+    manager = GroupManager(repository, logger=logger)
+
+    tokens = []
+    if head.startswith("-F") and head not in ("-F", "--find", "--search"):
+        suffix = head[2:]
+        if suffix:
+            tokens.append(suffix)
+    for tok in argv:
+        if tok.startswith("-F") and tok not in ("-F", "--find", "--search"):
+            suffix = tok[2:]
+            if suffix:
+                tokens.append(suffix)
+        else:
+            tokens.append(tok)
+    if not tokens and head not in ("-F", "--find", "--search"):
+        tokens = body_run(head, argv, "name")
+
+    query = parse_find_tokens(tokens)
+
+    if query.source == "config":
+        model, decls = discover_config(opts.config_root)
+        for name, _pkgs in decls:
+            if query.matches_group(name, _pkgs):
+                print(name)
+        return 0
+    if query.source == "orphans":
+        model, _decls = discover_config(opts.config_root)
+        decls = orphaned_names(manager, model, opts.config_root)
+        for name, _pkgs in decls:
+            if query.matches_group(name, _pkgs):
+                print(name)
+        return 0
+
+    matched = find_groups(query, manager, manager.all_groups())
+    if not matched:
+        print("(no matching groups)")
+        return 0
+    for group in matched:
+        print(group.name)
+    return 0
+
+
+def body_run(head: str, argv: Sequence[str], mode: str) -> list[str]:
+    out: list[str] = []
+    for tok in (head, *argv):
+        if tok.startswith("-F"):
+            continue
+        out.append(tok)
+    return out
+
+
+def _cmd_validate(argv: Sequence[str], opts: _Options, head: str) -> int:
+    from ..cli.query import (
+        QueryError,
+        discover_config,
+        split_group_refs,
+        validate_group,
+    )
+
+    paths = _paths(opts)
+    logger = opts.logger
+    repository = GroupRepository(paths)
+    manager = GroupManager(repository, logger=logger)
+    backend = _backend(opts, logger)
+
+    installed = {e.attribute or e.package_key for e in backend.list_entries()}
+
+    config_mode = any(tok in ("--config", "-c") for tok in argv)
+    refs: list[str] = []
+    for tok in argv:
+        if tok in ("--config", "-c", "--"):
+            continue
+        refs.extend(split_group_refs(tok.lstrip("#")))
+    if head.startswith("-V") and head != "-V":
+        refs.extend(split_group_refs(head[2:].lstrip("#")))
+
+    model = None
+    if config_mode:
+        model, _decls = discover_config(opts.config_root)
+        root = model.root
+        print(f"configuration root: {root.directory} (flake={root.is_flake})")
+        for group in manager.all_groups():
+            print(validate_group(group, installed, model))
+        return 0
+
+    groups = [manager.get(r) for r in refs] if refs else manager.all_groups()
+    for group in groups:
+        if group is None:
+            logger.error(f"group not found: {group}")
+            return 1
+        print(validate_group(group, installed, model))
+    return 0
+
+
 def _cmd_version() -> int:
     print(f"nixorcist {__version__}")
     return 0
@@ -584,7 +737,7 @@ def _run_promotions(
     from ..promotion.transaction import Transaction
     from ..logging import Logger as Lg
 
-    root = discover_root(opts.config_root, dry_run=opts.dry_run)
+    root = discover_root(opts.config_root)
     model = discover(root)
     for group_name, pkgs in promote:
         plan = plan_promotion(model, [(group_name, pkgs)])
@@ -681,6 +834,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _cmd_import(body[1:], opts)
     if head == "resolve":
         return _cmd_resolve(body[1:], opts)
+    if head in ("-L", "--list") or head.startswith("-L"):
+        return _cmd_list(body[1:], opts, head)
+    if head in ("-F", "--find", "--search") or head.startswith("-F"):
+        return _cmd_find(body[1:], opts, head)
+    if head in ("-V", "--validate") or head.startswith("-V"):
+        return _cmd_validate(body[1:], opts, head)
 
     return _run_dsl(" ".join(body), opts, reporter)
 
