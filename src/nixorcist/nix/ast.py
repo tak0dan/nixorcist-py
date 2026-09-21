@@ -279,6 +279,18 @@ class _Parser:
     # -- expression levels ---------------------------------------------------
     def parse_expr(self) -> Node:
         tok = self.peek()
+        # A bare identifier followed by ``:`` is Nix's single-argument
+        # function syntax (for example ``pkg: pkgs.lib.getName pkg``).  It is
+        # common in ``let`` bindings used by modular configurations and must
+        # be recognized before the identifier is parsed as an application.
+        if tok.kind == "IDENT" and self.peek(1).kind == ":":
+            arg = self.advance()
+            self.advance()
+            body = self.parse_expr()
+            node = self.node("lambda", arg.start, body.end)
+            node.attrpath = ["lambda"]
+            node.children = [self.node("arg", arg.start, arg.end, value=arg.value), body]
+            return node
         if tok.kind == "KEYWORD":
             if tok.value == "with":
                 return self.parse_with()

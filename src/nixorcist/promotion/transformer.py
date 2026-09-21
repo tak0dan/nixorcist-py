@@ -25,9 +25,26 @@ def _line_indent(text: str, offset: int) -> str:
 
 def insert_into_list(text: str, list_node, snippets: list[str]) -> str:
     close = list_node.end - 1
-    indent = _line_indent(text, list_node.start)
+    # Prefer the indentation of an existing element; an empty list gets one
+    # level deeper than the list's own line.  Keeping the closing bracket on
+    # its original line is important both for readable candidates and for
+    # minimal, reviewable configuration diffs.
+    if list_node.children:
+        indent = _line_indent(text, list_node.children[0].start)
+    else:
+        indent = _line_indent(text, list_node.start) + "  "
+
+    line_start = text.rfind("\n", list_node.start, close)
+    closing_indent = _line_indent(text, close)
+    if line_start >= 0 and text[line_start + 1 : close].strip() == "":
+        insertion = "".join(f"\n{indent}{snippet}" for snippet in snippets)
+        return text[:line_start] + insertion + f"\n{closing_indent}" + text[close:]
+
     insertion = "".join(f"\n{indent}{snippet}" for snippet in snippets)
-    return text[:close] + insertion + text[close:]
+    # Inline lists have no dedicated closing-bracket line. Convert just that
+    # local fragment to multiline form rather than attaching ``]`` to the
+    # final generated element.
+    return text[:close] + insertion + f"\n{closing_indent}" + text[close:]
 
 
 def _normalise_element(value: str) -> str:

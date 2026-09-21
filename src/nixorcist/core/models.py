@@ -13,6 +13,11 @@ Group state uses two orthogonal dimensions (see the corrected state model):
 ``promote``/``demote`` change the backend dimension; ``-A``/``-E`` change the
 activation dimension; package membership and profile installation are fully
 independent properties.
+
+Package installation method (spec §90):
+* ``imperative`` -- install via ``nix profile install`` (default)
+* ``declarative`` -- install via NixOS configuration (promoted)
+* ``auto`` -- let nixorcist decide based on group backend state
 """
 
 from __future__ import annotations
@@ -28,6 +33,19 @@ def _now_iso() -> str:
     return _dt.datetime.now(_dt.timezone.utc).isoformat(timespec="seconds")
 
 
+class InstallMethod(str, Enum):
+    """How a package should be installed into the system.
+
+    Declarative packages are higher in hierarchy than imperative ones.
+    When a group is promoted to declarative, its packages should be installed
+    via NixOS configuration rather than ``nix profile install``.
+    """
+
+    IMPERATIVE = "imperative"
+    DECLARATIVE = "declarative"
+    AUTO = "auto"
+
+
 @dataclass(frozen=True)
 class ResolvedPackage:
     """A package name resolved to a concrete Nix attribute.
@@ -36,6 +54,11 @@ class ResolvedPackage:
     resolution result.  The conceptual identity of a package is
     ``(source, requested)``; the attribute is a resolution result and may be
     re-resolved when nixpkgs reorganizes attributes.
+
+    ``install_method`` determines how the package is installed:
+    - ``imperative``: via ``nix profile install`` (default)
+    - ``declarative``: via NixOS configuration (promoted)
+    - ``auto``: decide based on group backend state at install time
     """
 
     requested: str
@@ -43,6 +66,7 @@ class ResolvedPackage:
     source: str = "nixpkgs"
     revision: str = ""
     resolution_timestamp: str = field(default_factory=_now_iso)
+    install_method: InstallMethod = InstallMethod.IMPERATIVE
 
     def to_dict(self) -> dict[str, str]:
         return {
@@ -51,16 +75,23 @@ class ResolvedPackage:
             "source": self.source,
             "nixpkgs_revision": self.revision,
             "resolution_timestamp": self.resolution_timestamp,
+            "install_method": self.install_method.value,
         }
 
     @classmethod
     def from_dict(cls, data: dict) -> "ResolvedPackage":
+        install_method_raw = data.get("install_method", "imperative")
+        try:
+            install_method = InstallMethod(install_method_raw)
+        except ValueError:
+            install_method = InstallMethod.IMPERATIVE
         return cls(
             requested=data.get("name", ""),
             attribute=data.get("attribute", data.get("name", "")),
             source=data.get("source", "nixpkgs"),
             revision=data.get("nixpkgs_revision", ""),
             resolution_timestamp=data.get("resolution_timestamp", ""),
+            install_method=install_method,
         )
 
 

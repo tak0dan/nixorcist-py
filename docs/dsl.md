@@ -26,7 +26,7 @@ lex identically. The lexer and recursive-descent parser live in
 | `#`          | broadcast assignment / scope separator |
 | `##`         | positional assignment                |
 | `{` `}`      | collection brackets                  |
-| `,`          | collection separator                 |
+| `, | !`  | collection separator inside `{...}` |
 | `*`          | "all groups" scope                   |
 | `.`          | "profile only" scope                 |
 | `-P`         | promote   (backend := declarative)   |
@@ -59,6 +59,46 @@ lex identically. The lexer and recursive-descent parser live in
 | `#*`       | all groups                                     |
 | `#.`       | profile only                                   |
 | (none)     | remembered target for `-A`; default imperative profile for `-I` |
+
+## Zsh compatibility
+
+Both zsh and bash perform **brace expansion** (`{a,b}` → `a b`) and
+other special-character processing (`|` as pipe, `!` as history).
+This silently breaks the DSL if collections are left unquoted.
+
+**zsh** — disable both brace and history expansion by adding these to
+`~/.zshrc`:
+
+```zsh
+unsetopt brace_expand
+unsetopt histexpand
+```
+
+With those options set, comma- and exclamation-separated collections
+work verbatim:
+
+```zsh
+nist -IG#{Programming,Gaming}#{firefox}#{python3}{git,steam}   # comma
+nist -IG#{Programming,Gaming}#{firefox}#{python3}{git!steam}   # exclamation
+```
+
+The pipe separator `{git|steam}` is always a shell pipe operator
+and must be quoted in zsh (or use `!` instead):
+
+```zsh
+nist -IG#{Programming,Gaming}#{firefox}#{python3}{git|steam}   # quote!
+```
+
+Space-separated names inside braces (e.g. `{git steam}`) work at
+the DSL level but are rejected by zsh's parser; quote them or
+use commas instead.
+
+**bash** — bash also expands `{a,b}` and treats `|`/`!` as operators.
+Single-quote the entire DSL argument there:
+
+```bash
+nist '-IG#{Programming,Gaming}#{firefox}#{python3}{git,steam}'
+```
 
 ## Assignment
 

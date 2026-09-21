@@ -32,6 +32,19 @@ class Target(str, Enum):
     DECLARATIVE = "declarative"
 
 
+class InstallMethod(str, Enum):
+    """How a package should be installed into the system.
+
+    Declarative packages are higher in hierarchy than imperative ones.
+    When a group is promoted to declarative, its packages should be installed
+    via NixOS configuration rather than ``nix profile install``.
+    """
+
+    IMPERATIVE = "imperative"
+    DECLARATIVE = "declarative"
+    AUTO = "auto"
+
+
 @dataclass(frozen=True)
 class PackageRef:
     name: str
@@ -106,6 +119,11 @@ class Command:
     ``target`` captures ``-i``/``-d`` selection for ``-I`` / ``-A``:
     ``Target.NONE`` means "remembered target" for ``-A`` and the default
     (imperative) profile for ``-I``.
+
+    ``install_method`` captures ``-M`` selection for package installation:
+    ``InstallMethod.IMPERATIVE`` is the default (install via nix profile),
+    ``InstallMethod.DECLARATIVE`` means install via NixOS config,
+    ``InstallMethod.AUTO`` means decide based on group backend state.
     """
 
     operation: Operation
@@ -118,6 +136,7 @@ class Command:
     expression: str = ""
     target: Target = Target.NONE
     sequence: bool = False
+    install_method: InstallMethod = InstallMethod.IMPERATIVE
     # Obliteration / yielding modifiers (spec §§33-63)
     obliterate_count: int = 0
     yield_count: int = 0

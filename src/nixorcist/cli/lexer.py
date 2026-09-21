@@ -12,7 +12,7 @@ Token forms (see docs/dsl.md):
     #                    broadcast assignment / scope separator
     ##                   positional assignment
     { }                  collection brackets
-    ,                    collection separator
+    , | !              collection separator (`,`, `|` or `!`)
     *                    "all groups" scope
     .                    "profile only" scope
     NAME                 identifiers (packages / groups / values)
@@ -35,6 +35,8 @@ class TokenKind(str, Enum):
     LBRACE = "LBRACE"
     RBRACE = "RBRACE"
     COMMA = "COMMA"
+    PIPE = "PIPE"
+    EXCLAMATION = "EXCLAMATION"
     STAR = "STAR"
     DOT = "DOT"
     NAME = "NAME"
@@ -51,6 +53,8 @@ class TokenKind(str, Enum):
     OBLITERATE = "OBLITERATE"
     YIELD = "YIELD"
     SAVE = "SAVE"
+    # Installation method (spec §90)
+    METHOD = "METHOD"
 
 
 @dataclass(frozen=True)
@@ -85,6 +89,7 @@ _LONG_FLAGS = {
     "--delete-group": TokenKind.OBLITERATE,
     "--yield": TokenKind.YIELD,
     "--save": TokenKind.SAVE,
+    "--method": TokenKind.METHOD,
 }
 
 _SHORT_PREFIX = "-"
@@ -102,6 +107,7 @@ _PREFIX_KIND = {
     "O": TokenKind.OBLITERATE,
     "Y": TokenKind.YIELD,
     "s": TokenKind.SAVE,
+    "M": TokenKind.METHOD,
 }
 
 _NAME_START = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_")
@@ -177,6 +183,10 @@ class Lexer:
             return Token(TokenKind.RBRACE, ch, pos, pos + 1)
         if ch == ",":
             return Token(TokenKind.COMMA, ch, pos, pos + 1)
+        if ch == "|":
+            return Token(TokenKind.PIPE, ch, pos, pos + 1)
+        if ch == "!":
+            return Token(TokenKind.EXCLAMATION, ch, pos, pos + 1)
         if ch == "*":
             return Token(TokenKind.STAR, ch, pos, pos + 1)
         if ch == ".":

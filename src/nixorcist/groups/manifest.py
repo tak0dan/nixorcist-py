@@ -121,6 +121,8 @@ def serialize(manifest: GroupManifest) -> str:
                 lines.append(f"nixpkgs_revision = {_toml_str(pkg.revision)}")
             if pkg.resolution_timestamp:
                 lines.append(f"resolution_timestamp = {_toml_str(pkg.resolution_timestamp)}")
+            if pkg.install_method and pkg.install_method.value != "imperative":
+                lines.append(f"install_method = {_toml_str(pkg.install_method.value)}")
             lines.append("")
     return "\n".join(lines).rstrip("\n") + "\n"
 

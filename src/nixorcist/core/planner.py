@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING
 
 from ..cli.ast import Command, Operation, Target
 from ..cli.diagnostics import Diagnostic, ErrorCode, NixorcistError
-from ..core.models import Backend
+from ..core.models import Backend, InstallMethod
 from ..groups.manager import GroupError, GroupManager
 from .models import ResolvedPackage, dedupe_packages
 
@@ -84,8 +84,20 @@ class Plan:
         for name in self.ensure_groups:
             steps.append(f'ensure group "{name}"')
         if self.install:
-            names = ", ".join(f"{p.requested} -> {p.attribute}" for p in self.install)
-            steps.append(f"install into profile (nix profile): {names}")
+            # Group packages by installation method for clearer output
+            imperative_pkgs = [p for p in self.install if p.install_method is InstallMethod.IMPERATIVE]
+            auto_pkgs = [p for p in self.install if p.install_method is InstallMethod.AUTO]
+            deferred_pkgs = [p for p in self.install if p.install_method is InstallMethod.DECLARATIVE]
+            
+            if imperative_pkgs:
+                names = ", ".join(f"{p.requested} -> {p.attribute}" for p in imperative_pkgs)
+                steps.append(f"install into profile (nix profile): {names}")
+            if auto_pkgs:
+                names = ", ".join(f"{p.requested} -> {p.attribute}" for p in auto_pkgs)
+                steps.append(f"install into profile (auto, nix profile): {names}")
+            if deferred_pkgs:
+                names = ", ".join(p.requested for p in deferred_pkgs)
+                steps.append(f"deferred to declarative (NixOS config): {names}")
         if self.add_to_groups:
             for group, pkgs in self.add_to_groups.items():
                 steps.append(f'add to group "{group}": {", ".join(p.requested for p in pkgs)}')
@@ -136,10 +148,44 @@ def _target_key(written: str, canonical: str | None) -> str:
     return canonical if canonical else written
 
 
+def _should_install_imperatively(pkg: ResolvedPackage, group_backend: Backend | None = None) -> bool:
+    """Determine if a package should be installed imperatively based on its
+    installation method and the group's backend state.
+
+    Per spec §90:
+    - ``imperative``: always install via nix profile
+    - ``declarative``: never install via nix profile (use NixOS config)
+    - ``auto``: install imperatively only if the group is not declarative
+    """
+    if pkg.install_method == InstallMethod.IMPERATIVE:
+        return True
+    if pkg.install_method == InstallMethod.DECLARATIVE:
+        return False
+    # AUTO: install imperatively only if group is not declarative
+    if group_backend is None or group_backend != Backend.DECLARATIVE:
+        return True
+    return False
+
+
 def plan(cmd: Command, manager: GroupManager, resolver: "PackageResolver") -> Plan:
     op = cmd.operation
     explicit_names = [p.name for p in cmd.explicit_packages()]
     resolved_explicit = resolver.resolve_many(explicit_names) if explicit_names else []
+    
+    # Set install_method based on command's install_method for explicit packages
+    if cmd.install_method is not InstallMethod.IMPERATIVE:
+        from ..core.models import ResolvedPackage as RP
+        resolved_explicit = [
+            RP(
+                requested=p.requested,
+                attribute=p.attribute,
+                source=p.source,
+                revision=p.revision,
+                resolution_timestamp=p.resolution_timestamp,
+                install_method=cmd.install_method,
+            )
+            for p in resolved_explicit
+        ]
 
     if cmd.is_declarative_install:
         return _plan_declarative_install(cmd, manager, resolved_explicit, resolver)
@@ -176,11 +222,27 @@ def plan(cmd: Command, manager: GroupManager, resolver: "PackageResolver") -> Pl
                 pkgs = _resolve_slot(cmd, i, resolver)
                 if pkgs:
                     add_to_groups[key] = add_to_groups.get(key, []) + pkgs
-                    install_pkgs.extend(pkgs)
+                    # Filter packages by installation method
+                    group = manager.get(ref.name)
+                    group_backend = group.state.backend if group else None
+                    for pkg in pkgs:
+                        if _should_install_imperatively(pkg, group_backend):
+                            install_pkgs.append(pkg)
+                        else:
+                            notes.append(
+                                f"[deferred] {pkg.requested} -> declarative (skipped imperative install)"
+                            )
                 else:
                     existing = manager.get(ref.name)
                     if existing:
-                        install_pkgs.extend(existing.packages)
+                        group_backend = existing.state.backend
+                        for pkg in existing.packages:
+                            if _should_install_imperatively(pkg, group_backend):
+                                install_pkgs.append(pkg)
+                            else:
+                                notes.append(
+                                    f"[deferred] {pkg.requested} -> declarative (skipped imperative install)"
+                                )
                 ensure_groups.append(ref.name)
         elif cmd.groups_flag and cmd.all_groups:
             for name in all_group_names():
@@ -198,11 +260,25 @@ def plan(cmd: Command, manager: GroupManager, resolver: "PackageResolver") -> Pl
                             "or use -IG#{group}#{packages} to create it while installing",
                         )
                     )
-                install_pkgs.extend(existing.packages)
+                group_backend = existing.state.backend
+                for pkg in existing.packages:
+                    if _should_install_imperatively(pkg, group_backend):
+                        install_pkgs.append(pkg)
+                    else:
+                        notes.append(
+                            f"[deferred] {pkg.requested} -> declarative (skipped imperative install)"
+                        )
         elif cmd.all_groups:
             install_pkgs.extend(manager.union_contents(all_group_names()))
         else:
-            install_pkgs.extend(resolved_explicit)
+            # Bare install: filter by installation method
+            for pkg in resolved_explicit:
+                if _should_install_imperatively(pkg):
+                    install_pkgs.append(pkg)
+                else:
+                    notes.append(
+                        f"[deferred] {pkg.requested} -> declarative (skipped imperative install)"
+                    )
 
     elif op is Operation.REMOVE:
         if cmd.groups_flag:
@@ -442,7 +518,14 @@ def _plan_state_operation(
                     notes.append(f"[!] Group '{name}' is already active imperatively.")
                     continue
                 state_activate.append((name, "imperative"))
-                install_pkgs.extend(group.packages)
+                # Filter packages by installation method when activating imperatively
+                for pkg in group.packages:
+                    if _should_install_imperatively(pkg, Backend.IMPERATIVE):
+                        install_pkgs.append(pkg)
+                    else:
+                        notes.append(
+                            f"[deferred] {pkg.requested} -> declarative (skipped imperative install)"
+                        )
 
 
 def _state_targets(cmd: Command, manager: GroupManager) -> list[str]:
@@ -510,6 +593,20 @@ def _plan_declarative_install(
     ensure_groups: list[str] = []
     promote: list[tuple[str, list[ResolvedPackage]]] = []
 
+    # Set install_method to DECLARATIVE for all packages in declarative install
+    from ..core.models import ResolvedPackage as RP
+    resolved = [
+        RP(
+            requested=p.requested,
+            attribute=p.attribute,
+            source=p.source,
+            revision=p.revision,
+            resolution_timestamp=p.resolution_timestamp,
+            install_method=InstallMethod.DECLARATIVE,
+        )
+        for p in resolved
+    ]
+
     if cmd.groups_flag and cmd.groups and not cmd.all_groups:
         for i, ref in enumerate(cmd.groups):
             key = _target_key(ref.name, manager.canonical(ref.name))
@@ -551,7 +648,21 @@ def _plan_declarative_install(
 def _resolve_slot(cmd: Command, index: int, resolver: "PackageResolver") -> list[ResolvedPackage]:
     refs = cmd.assign_packages_for(index)
     names = [p.name for p in refs]
-    return resolver.resolve_many(names) if names else []
+    resolved = resolver.resolve_many(names) if names else []
+    # Always set install_method based on command's install_method
+    from ..core.models import ResolvedPackage as RP
+    resolved = [
+        RP(
+            requested=p.requested,
+            attribute=p.attribute,
+            source=p.source,
+            revision=p.revision,
+            resolution_timestamp=p.resolution_timestamp,
+            install_method=cmd.install_method,
+        )
+        for p in resolved
+    ]
+    return resolved
 
 
 def _slot_or_clear(

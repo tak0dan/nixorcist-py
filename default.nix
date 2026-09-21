@@ -32,6 +32,11 @@ python3.pkgs.buildPythonApplication rec {
 
   nativeBuildInputs = [ python3.pkgs.setuptools ];
 
+  postInstall = ''
+    mkdir -p $out/share/zsh/site-functions
+    cp ${src}/src/nixorcist/cli/_nist $out/share/zsh/site-functions/_nist
+  '';
+
   pythonImportsCheck = [ "nixorcist" ];
 
   meta = with lib; {

@@ -178,8 +178,12 @@ class GroupManager:
             raise GroupError(
                 Diagnostic(ErrorCode.INVALID_GROUP, f"group '{new}' already exists")
             )
+        old_path = self.repository._path_for(old)
         manifest.name = new
         self.repository.save(manifest)
+        if old != new and old_path.exists():
+            old_path.unlink(missing_ok=True)
+            self.logger.debug(f"removed old manifest {old_path}")
         self.logger.debug(f"renamed group {old} -> {new}")
         return manifest.as_group()
 

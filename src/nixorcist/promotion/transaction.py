@@ -32,8 +32,19 @@ class PromotionError(NixorcistError):
     pass
 
 
-def _ignore(_directory: str, names: list[str]) -> set[str]:
-    return {n for n in names if n in (".git", ".hg", ".svn", "result", "result-system", ".nixorcist")}
+def _ignore(directory: str, names: list[str]) -> set[str]:
+    ignored = {
+        name
+        for name in names
+        if name in (".git", ".hg", ".svn", "result", "result-system", ".nixorcist")
+    }
+    # A configuration root can contain a checkout of Nixorcist itself. Its
+    # resolver cache is neither part of the NixOS module graph nor guaranteed
+    # to be readable by the user performing a promotion. Never copy it into a
+    # candidate tree.
+    if Path(directory).name == "nixorcist" and "cache" in names:
+        ignored.add("cache")
+    return ignored
 
 
 def copy_tree(source: Path, target: Path) -> None:

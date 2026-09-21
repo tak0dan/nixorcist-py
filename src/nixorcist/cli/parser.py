@@ -18,6 +18,7 @@ from ..cli.ast import (
     Broadcast,
     Command,
     GroupRef,
+    InstallMethod,
     Operation,
     PackageRef,
     PackageSet,
@@ -76,6 +77,7 @@ class Parser:
         groups_flag = False
         sequence = False
         target = Target.NONE
+        install_method = InstallMethod.IMPERATIVE
         obliterate_count = 0
         yield_count = 0
         save = False
@@ -88,6 +90,7 @@ class Parser:
                 TokenKind.SEQUENCE,
                 TokenKind.IMPERATIVE,
                 TokenKind.DECLARATIVE,
+                TokenKind.METHOD,
             )
         ):
             kind = self.peek().kind
@@ -128,9 +131,41 @@ class Parser:
                         self.peek().span, "conflicting activation targets: -i and -d together"
                     )
                 target = wanted
+            elif kind is TokenKind.METHOD:
+                install_method = self._parse_install_method()
+                continue
             self.advance()
 
         groups, all_groups, profile_only, has_scope = self._parse_scope(groups_flag)
+
+        # Second pass: consume modifiers that may appear after scope
+        while self.peek().kind in (
+            TokenKind.METHOD,
+            TokenKind.SEQUENCE,
+            TokenKind.IMPERATIVE,
+            TokenKind.DECLARATIVE,
+            TokenKind.GROUP,
+        ):
+            kind = self.peek().kind
+            if kind is TokenKind.METHOD:
+                install_method = self._parse_install_method()
+            elif kind is TokenKind.SEQUENCE:
+                sequence = True
+                self.advance()
+            elif kind in (TokenKind.IMPERATIVE, TokenKind.DECLARATIVE):
+                wanted = (
+                    Target.IMPERATIVE if kind is TokenKind.IMPERATIVE else Target.DECLARATIVE
+                )
+                if target is not Target.NONE and target is not wanted:
+                    raise self._syntax_error(
+                        self.peek().span, "conflicting activation targets: -i and -d together"
+                    )
+                target = wanted
+                self.advance()
+            elif kind is TokenKind.GROUP:
+                groups_flag = True
+                self.advance()
+
         assignment = self._parse_assignment()
 
         if self.peek().kind is not TokenKind.EOF:
@@ -174,6 +209,7 @@ class Parser:
             expression=self.text,
             target=target,
             sequence=sequence,
+            install_method=install_method,
             obliterate_count=obliterate_count,
             yield_count=yield_count,
             save=save,
@@ -266,6 +302,26 @@ class Parser:
             count += text.count("y")
             self.advance()
         return count
+
+    def _parse_install_method(self) -> InstallMethod:
+        """Consume ``-M <method>`` where method is imperative/declarative/auto."""
+        self.advance()  # consume -M
+        tok = self.peek()
+        if tok.kind is not TokenKind.NAME:
+            raise self._syntax_error(
+                tok.span,
+                "expected a method name after -M",
+                "use -M imperative, -M declarative, or -M auto",
+            )
+        method_str = tok.text.lower()
+        if method_str not in ("imperative", "declarative", "auto"):
+            raise self._syntax_error(
+                tok.span,
+                f"unknown installation method {tok.text!r}",
+                "valid methods are: imperative, declarative, auto",
+            )
+        self.advance()  # consume method name
+        return InstallMethod(method_str)
 
     # -- scope parsing --------------------------------------------------
     def _parse_scope(
@@ -421,10 +477,10 @@ class Parser:
             if tok.kind is TokenKind.NAME:
                 items.append(self._ref_from_token(tok, cls))
                 self.advance()
-                if self.peek().kind is TokenKind.COMMA:
+                if self.peek().kind in (TokenKind.COMMA, TokenKind.PIPE, TokenKind.EXCLAMATION):
                     self.advance()
-            elif tok.kind is TokenKind.COMMA:
-                raise self._syntax_error(tok.span, "unexpected ','", "write {a,b}, not {,a} or {a,,b}")
+            elif tok.kind in (TokenKind.COMMA, TokenKind.PIPE, TokenKind.EXCLAMATION):
+                raise self._syntax_error(tok.span, "unexpected separator", "write {a,b}, not {,a} or {a,,b}")
             else:
                 raise self._syntax_error(tok.span, f"expected a name or '}}', found {tok.text!r}")
         self._last_rbrace_end = self.peek().end

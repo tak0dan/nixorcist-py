@@ -5,6 +5,7 @@ NixOS modules and classify them for promotion planning.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from enum import Enum
 from pathlib import Path
 
 from ..core.models import ResolvedPackage
@@ -27,6 +28,22 @@ _FREQUENCY_PACKAGE_TARGETS = {
 
 class DiscoveryError(NixorcistError):
     pass
+
+
+class ConfigurationKind(str, Enum):
+    """Configuration layout determined from the statically-resolved import graph.
+
+    ``PLAIN`` means a package declaration is owned by the entry configuration
+    itself (or no package declaration exists yet). ``MODULAR`` means the
+    package declaration Nixorcist would manage lives in an imported module.
+    A standard ``configuration.nix`` that imports only
+    ``hardware-configuration.nix`` is therefore still plain. Dynamic imports
+    are deliberately not guessed: they remain visible on ``ImportGraph`` and
+    the planner only edits bindings it parsed structurally.
+    """
+
+    PLAIN = "plain"
+    MODULAR = "modular"
 
 
 @dataclass
@@ -52,6 +69,21 @@ class ConfigurationModel:
     root: NixOSRoot
     graph: ImportGraph
     declarations: list[PackageDeclaration]
+
+    @property
+    def configuration_kind(self) -> ConfigurationKind:
+        """Classify the configuration without relying on directory names.
+
+        The classification is based on real, parsed ``imports`` edges, rather
+        than heuristics such as the presence of a ``modules/`` directory.
+        """
+        if any(declaration.module != self.root.entry_file for declaration in self.declarations):
+            return ConfigurationKind.MODULAR
+        return ConfigurationKind.PLAIN
+
+    @property
+    def is_modular(self) -> bool:
+        return self.configuration_kind is ConfigurationKind.MODULAR
 
     @property
     def preferred_declaration(self) -> PackageDeclaration | None:

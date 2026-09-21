@@ -1,0 +1,268 @@
+===== SYSTEM =====
+Linux Tak0Nix 6.18.52 #1-NixOS SMP PREEMPT_DYNAMIC Mon Sep 14 11:36:19 UTC 2026 x86_64 GNU/Linux
+
+===== CPU =====
+Architecture:                            x86_64
+CPU op-mode(s):                          32-bit, 64-bit
+Address sizes:                           39 bits physical, 48 bits virtual
+Byte Order:                              Little Endian
+CPU(s):                                  8
+On-line CPU(s) list:                     0-7
+Vendor ID:                               GenuineIntel
+Model name:                              Intel(R) Core(TM) i5-8350U CPU @ 1.70GHz
+CPU family:                              6
+Model:                                   142
+Thread(s) per core:                      2
+Core(s) per socket:                      4
+Socket(s):                               1
+Stepping:                                10
+Microcode version:                       0xf6
+CPU(s) scaling MHz:                      67%
+CPU max MHz:                             3600,0000
+CPU min MHz:                             400,0000
+BogoMIPS:                                3799,90
+Flags:                                   fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush dts acpi mmx fxsr sse sse2 ss ht tm pbe syscall nx pdpe1gb rdtscp lm constant_tsc art arch_perfmon pebs bts rep_good nopl xtopology nonstop_tsc cpuid aperfmperf pni pclmulqdq dtes64 monitor ds_cpl vmx smx est tm2 ssse3 sdbg fma cx16 xtpr pdcm pcid sse4_1 sse4_2 x2apic movbe popcnt tsc_deadline_timer aes xsave avx f16c rdrand lahf_lm abm 3dnowprefetch cpuid_fault epb pti ssbd ibrs ibpb stibp tpr_shadow flexpriority ept vpid ept_ad fsgsbase tsc_adjust bmi1 avx2 smep bmi2 erms invpcid mpx rdseed adx smap clflushopt intel_pt xsaveopt xsavec xgetbv1 xsaves dtherm ida arat pln pts hwp hwp_notify hwp_act_window hwp_epp vnmi md_clear flush_l1d arch_capabilities
+Virtualization:                          VT-x
+L1d cache:                               128 KiB (4 instances)
+L1i cache:                               128 KiB (4 instances)
+L2 cache:                                1 MiB (4 instances)
+L3 cache:                                6 MiB (1 instance)
+NUMA node(s):                            1
+NUMA node0 CPU(s):                       0-7
+Vulnerability Gather data sampling:      Mitigation; Microcode
+Vulnerability Ghostwrite:                Not affected
+Vulnerability Indirect target selection: Not affected
+Vulnerability Itlb multihit:             KVM: Mitigation: Split huge pages
+Vulnerability L1tf:                      Mitigation; PTE Inversion; VMX conditional cache flushes, SMT vulnerable
+Vulnerability Mds:                       Mitigation; Clear CPU buffers; SMT vulnerable
+Vulnerability Meltdown:                  Mitigation; PTI
+Vulnerability Mmio stale data:           Mitigation; Clear CPU buffers; SMT vulnerable
+Vulnerability Old microcode:             Not affected
+Vulnerability Reg file data sampling:    Not affected
+Vulnerability Retbleed:                  Mitigation; IBRS
+Vulnerability Spec rstack overflow:      Not affected
+Vulnerability Spec store bypass:         Mitigation; Speculative Store Bypass disabled via prctl
+Vulnerability Spectre v1:                Mitigation; usercopy/swapgs barriers and __user pointer sanitization
+Vulnerability Spectre v2:                Mitigation; IBRS; IBPB conditional; STIBP conditional; RSB filling; PBRSB-eIBRS Not affected; BHI Not affected
+Vulnerability Srbds:                     Mitigation; Microcode
+Vulnerability Tsa:                       Not affected
+Vulnerability Tsx async abort:           Mitigation; TSX disabled
+Vulnerability Vmscape:                   Mitigation; IBPB before exit to userspace
+
+===== GPU =====
+00:02.0 VGA compatible controller [0300]: Intel Corporation Kaby Lake-R GT2 [UHD Graphics 620] [8086:5917] (rev 07)
+	Subsystem: Lenovo ThinkPad T480 (20L5) [17aa:225d]
+	Kernel driver in use: i915
+	Kernel modules: i915
+
+===== RAM =====
+               total        used        free      shared  buff/cache   available
+Mem:            15Gi       6,8Gi       1,0Gi       1,2Gi       8,5Gi       8,7Gi
+Swap:           17Gi       1,2Mi        17Gi
+
+===== MEMORY MODULES =====
+# dmidecode 3.7
+Getting SMBIOS data from sysfs.
+SMBIOS 3.0.0 present.
+
+Handle 0x0003, DMI type 16, 23 bytes
+Physical Memory Array
+	Location: System Board Or Motherboard
+	Use: System Memory
+	Error Correction Type: None
+	Maximum Capacity: 32 GiB
+	Error Information Handle: Not Provided
+	Number Of Devices: 2
+
+Handle 0x0004, DMI type 17, 40 bytes
+Memory Device
+	Array Handle: 0x0003
+	Error Information Handle: Not Provided
+	Total Width: Unknown
+	Data Width: Unknown
+	Size: No Module Installed
+	Form Factor: Unknown
+	Set: None
+	Locator: ChannelA-DIMM0
+	Bank Locator: BANK 0
+	Type: Unknown
+	Type Detail: None
+
+Handle 0x0005, DMI type 17, 40 bytes
+Memory Device
+	Array Handle: 0x0003
+	Error Information Handle: Not Provided
+	Total Width: 64 bits
+	Data Width: 64 bits
+	Size: 16 GiB
+	Form Factor: SODIMM
+	Set: None
+	Locator: ChannelB-DIMM0
+	Bank Locator: BANK 2
+	Type: DDR4
+	Type Detail: Synchronous Unbuffered (Unregistered)
+	Speed: 2400 MT/s
+	Manufacturer: SK Hynix
+	Serial Number: 2F585E16
+	Asset Tag: 9876543210
+	Part Number: HMA82GS6JJR8N-VK    
+	Rank: 2
+	Configured Memory Speed: 2400 MT/s
+	Minimum Voltage: Unknown
+	Maximum Voltage: Unknown
+	Configured Voltage: 1.2 V
+
+
+===== STORAGE =====
+NAME          SIZE TYPE FSTYPE MODEL                TRAN MOUNTPOINTS
+sda             0B disk        SD/MMC               usb  
+nvme1n1     476,9G disk        INTEL SSDPEKKF512G7L nvme 
+├─nvme1n1p1   300M part vfat                        nvme 
+├─nvme1n1p2 459,6G part btrfs                       nvme 
+└─nvme1n1p3    17G part swap                        nvme 
+nvme0n1     476,9G disk        XF-512 2230          nvme 
+├─nvme0n1p1     1G part vfat                        nvme /boot
+├─nvme0n1p2 458,9G part ext4                        nvme /nix/store
+│                                                        /
+└─nvme0n1p3    17G part swap                        nvme [SWAP]
+
+===== PCI DEVICES =====
+00:00.0 Host bridge [0600]: Intel Corporation Xeon E3-1200 v6/7th Gen Core Processor Host Bridge/DRAM Registers [8086:5914] (rev 08)
+	Subsystem: Lenovo ThinkPad T480 [17aa:225d]
+	Kernel driver in use: skl_uncore
+00:02.0 VGA compatible controller [0300]: Intel Corporation Kaby Lake-R GT2 [UHD Graphics 620] [8086:5917] (rev 07)
+	Subsystem: Lenovo ThinkPad T480 (20L5) [17aa:225d]
+	Kernel driver in use: i915
+	Kernel modules: i915
+00:04.0 Signal processing controller [1180]: Intel Corporation Xeon E3-1200 v5/E3-1500 v5/6th Gen Core Processor Thermal Subsystem [8086:1903] (rev 08)
+	Subsystem: Lenovo ThinkPad T480 [17aa:225d]
+	Kernel driver in use: proc_thermal
+	Kernel modules: processor_thermal_device_pci_legacy
+00:08.0 System peripheral [0880]: Intel Corporation Xeon E3-1200 v5/v6 / E3-1500 v5 / 6th/7th/8th Gen Core Processor Gaussian Mixture Model [8086:1911]
+	Subsystem: Lenovo ThinkPad T480 [17aa:225d]
+00:14.0 USB controller [0c03]: Intel Corporation Sunrise Point-LP USB 3.0 xHCI Controller [8086:9d2f] (rev 21)
+	Subsystem: Lenovo ThinkPad T480 [17aa:225d]
+	Kernel driver in use: xhci_hcd
+	Kernel modules: xhci_pci
+00:14.2 Signal processing controller [1180]: Intel Corporation Sunrise Point-LP Thermal subsystem [8086:9d31] (rev 21)
+	Subsystem: Lenovo ThinkPad T480 [17aa:225d]
+	Kernel driver in use: intel_pch_thermal
+	Kernel modules: intel_pch_thermal
+00:16.0 Communication controller [0780]: Intel Corporation Sunrise Point-LP CSME HECI #1 [8086:9d3a] (rev 21)
+	Subsystem: Lenovo ThinkPad T480 [17aa:225d]
+	Kernel driver in use: mei_me
+	Kernel modules: mei_me
+00:16.3 Serial controller [0700]: Intel Corporation Sunrise Point-LP Active Management Technology - SOL [8086:9d3d] (rev 21)
+	Subsystem: Lenovo Device [17aa:225d]
+	Kernel driver in use: serial
+	Kernel modules: 8250_pci
+00:1c.0 PCI bridge [0604]: Intel Corporation Sunrise Point-LP PCI Express Root Port #1 [8086:9d10] (rev f1)
+	Subsystem: Lenovo Device [17aa:225d]
+	Kernel driver in use: pcieport
+00:1c.4 PCI bridge [0604]: Intel Corporation Sunrise Point-LP PCI Express Root Port #5 [8086:9d14] (rev f1)
+	Subsystem: Lenovo Device [17aa:225d]
+	Kernel driver in use: pcieport
+00:1c.6 PCI bridge [0604]: Intel Corporation Sunrise Point-LP PCI Express Root Port #7 [8086:9d16] (rev f1)
+	Subsystem: Lenovo Device [17aa:225d]
+	Kernel driver in use: pcieport
+00:1d.0 PCI bridge [0604]: Intel Corporation Sunrise Point-LP PCI Express Root Port #9 [8086:9d18] (rev f1)
+	Subsystem: Lenovo Device [17aa:225d]
+	Kernel driver in use: pcieport
+00:1d.2 PCI bridge [0604]: Intel Corporation Sunrise Point-LP PCI Express Root Port #11 [8086:9d1a] (rev f1)
+	Subsystem: Lenovo Device [17aa:225d]
+	Kernel driver in use: pcieport
+00:1f.0 ISA bridge [0601]: Intel Corporation Sunrise Point LPC/eSPI Controller [8086:9d4e] (rev 21)
+	Subsystem: Lenovo ThinkPad T480 [17aa:225d]
+00:1f.2 Memory controller [0580]: Intel Corporation Sunrise Point-LP PMC [8086:9d21] (rev 21)
+	Subsystem: Lenovo ThinkPad T480 [17aa:225d]
+00:1f.3 Audio device [0403]: Intel Corporation Sunrise Point-LP HD Audio [8086:9d71] (rev 21)
+	Subsystem: Lenovo ThinkPad T480 [17aa:225d]
+	Kernel driver in use: snd_hda_intel
+	Kernel modules: snd_soc_avs, snd_sof_pci_intel_skl, snd_hda_intel
+00:1f.4 SMBus [0c05]: Intel Corporation Sunrise Point-LP SMBus [8086:9d23] (rev 21)
+	Subsystem: Lenovo ThinkPad T480 [17aa:225d]
+	Kernel driver in use: i801_smbus
+	Kernel modules: i2c_i801
+00:1f.6 Ethernet controller [0200]: Intel Corporation Ethernet Connection (4) I219-LM [8086:15d7] (rev 21)
+	Subsystem: Lenovo Device [17aa:225d]
+	Kernel driver in use: e1000e
+	Kernel modules: e1000e
+02:00.0 Non-Volatile memory controller [0108]: Silicon Motion, Inc. SM2269XT (DRAM-less) NVMe SSD Controller [126f:2269] (rev 03)
+	Subsystem: Silicon Motion, Inc. SM2269XT (DRAM-less) NVMe SSD Controller [126f:2269]
+	Kernel driver in use: nvme
+	Kernel modules: nvme
+03:00.0 Network controller [0280]: Intel Corporation Wireless 8265 / 8275 [8086:24fd] (rev 78)
+	Subsystem: Intel Corporation Dual Band Wireless-AC 8265 [Windstorm Peak] [8086:0010]
+	Kernel driver in use: iwlwifi
+	Kernel modules: iwlwifi
+04:00.0 PCI bridge [0604]: Intel Corporation JHL6240 Thunderbolt 3 Bridge (Low Power) [Alpine Ridge LP 2016] [8086:15c0] (rev 01)
+	Subsystem: Device [2222:1111]
+	Kernel driver in use: pcieport
+05:00.0 PCI bridge [0604]: Intel Corporation JHL6240 Thunderbolt 3 Bridge (Low Power) [Alpine Ridge LP 2016] [8086:15c0] (rev 01)
+	Subsystem: Device [2222:1111]
+	Kernel driver in use: pcieport
+05:01.0 PCI bridge [0604]: Intel Corporation JHL6240 Thunderbolt 3 Bridge (Low Power) [Alpine Ridge LP 2016] [8086:15c0] (rev 01)
+	Subsystem: Device [2222:1111]
+	Kernel driver in use: pcieport
+05:02.0 PCI bridge [0604]: Intel Corporation JHL6240 Thunderbolt 3 Bridge (Low Power) [Alpine Ridge LP 2016] [8086:15c0] (rev 01)
+	Subsystem: Device [2222:1111]
+	Kernel driver in use: pcieport
+06:00.0 System peripheral [0880]: Intel Corporation JHL6240 Thunderbolt 3 NHI (Low Power) [Alpine Ridge LP 2016] [8086:15bf] (rev 01)
+	Subsystem: Device [2222:1111]
+	Kernel driver in use: thunderbolt
+	Kernel modules: thunderbolt
+3c:00.0 USB controller [0c03]: Intel Corporation JHL6240 Thunderbolt 3 USB 3.1 Controller (Low Power) [Alpine Ridge LP 2016] [8086:15c1] (rev 01)
+	Subsystem: Device [2222:1111]
+	Kernel driver in use: xhci_hcd
+	Kernel modules: xhci_pci
+3d:00.0 Non-Volatile memory controller [0108]: Intel Corporation SSD 600P Series [8086:f1a5] (rev 03)
+	Subsystem: Intel Corporation SSDPEKKW256G7 256GB [8086:390a]
+	Kernel driver in use: nvme
+	Kernel modules: nvme
+
+===== USB DEVICES =====
+Bus 001 Device 001: ID 1d6b:0002 Linux Foundation 2.0 root hub
+Bus 001 Device 002: ID 04f2:b613 Chicony Electronics Co., Ltd Integrated IR Camera
+Bus 001 Device 003: ID 8087:0a2b Intel Corp. Bluetooth wireless interface
+Bus 001 Device 004: ID 04f2:b604 Chicony Electronics Co., Ltd Integrated Camera (1280x720@30)
+Bus 001 Device 005: ID 2386:432f Raydium Corporation Touch System
+Bus 002 Device 001: ID 1d6b:0003 Linux Foundation 3.0 root hub
+Bus 002 Device 002: ID 0bda:0316 Realtek Semiconductor Corp. Card Reader
+Bus 003 Device 001: ID 1d6b:0002 Linux Foundation 2.0 root hub
+Bus 004 Device 001: ID 1d6b:0003 Linux Foundation 3.0 root hub
+
+===== NIXOS =====
+26.05.9843.b67c7a60c373 (Yarara)
+nix (Nix) 2.34.8
+
+===== OPENGL =====
+name of display: :1
+display: :1  screen: 0
+direct rendering: Yes
+Extended renderer info (GLX_MESA_query_renderer):
+    Vendor: Intel (0x8086)
+    Device: Mesa Intel(R) UHD Graphics 620 (KBL GT2) (0x5917)
+    Version: 26.1.8
+    Accelerated: yes
+    Video memory: 15868MB
+    Unified memory: yes
+    Preferred profile: core (0x1)
+    Max core profile version: 4.6
+    Max compat profile version: 4.6
+    Max GLES1 profile version: 1.1
+    Max GLES[23] profile version: 3.2
+OpenGL vendor string: Intel
+OpenGL renderer string: Mesa Intel(R) UHD Graphics 620 (KBL GT2)
+OpenGL core profile version string: 4.6 (Core Profile) Mesa 26.1.8
+OpenGL core profile shading language version string: 4.60
+OpenGL core profile context flags: (none)
+OpenGL core profile profile mask: core profile
+
+OpenGL version string: 4.6 (Compatibility Profile) Mesa 26.1.8
+OpenGL shading language version string: 4.60
+OpenGL context flags: (none)
+OpenGL profile mask: compatibility profile
+
+OpenGL ES profile version string: OpenGL ES 3.2 Mesa 26.1.8
+OpenGL ES profile shading language version string: OpenGL ES GLSL ES 3.20
+

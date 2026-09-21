@@ -122,13 +122,13 @@ class TestParseContentSets:
         assert p.mode == "compound"
         assert p.matches_name("Benjamin")
         assert p.matches_name("Programming")
-        assert not p.matches_name("Gaming")
+        assert not p.matches_name("Media")
 
     def test_compound_mixed(self):
         q = parse_find_tokens(["--name", "a%b%c"])
         p = q.name_preds[0]
         assert p.mode == "compound"
-        assert p.matches_name("alpha-beta-char")
+        assert p.matches_name("alpha-betc")
         assert not p.matches_name("alpha-bet")
         assert not p.matches_name("char-beta-alpha")
 

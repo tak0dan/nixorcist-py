@@ -153,6 +153,35 @@ class TestBracesAndSeparators:
         names = [t.text for t in tokenize(text) if t.kind is TokenKind.NAME]
         assert names == ["git", "vim", "python"]
 
+    def test_pipe_separator(self):
+        # `|` is an alternative collection separator so zsh brace
+        # expansion of `{a|b}` does not silently break the DSL.
+        toks = tokenize("{git|steam}")
+        assert any(t.kind is TokenKind.PIPE for t in toks)
+        names = [t.text for t in toks if t.kind is TokenKind.NAME]
+        assert names == ["git", "steam"]
+
+    def test_mixed_separators(self):
+        toks = tokenize("{git|steam,vim}")
+        names = [t.text for t in toks if t.kind is TokenKind.NAME]
+        assert names == ["git", "steam", "vim"]
+
+    def test_exclamation_separator(self):
+        # `!` is zsh-safe (no brace expansion, no history expansion
+        # when not followed by a valid history event) so it can be
+        # used unquoted inside braces.
+        toks = tokenize("{git!steam}")
+        assert any(t.kind is TokenKind.EXCLAMATION for t in toks)
+        names = [t.text for t in toks if t.kind is TokenKind.NAME]
+        assert names == ["git", "steam"]
+
+    def test_space_separated_names(self):
+        # Space-separated names inside braces work in bash (zsh
+        # rejects the space, so quote the whole argument there).
+        toks = tokenize("{git steam vim}")
+        names = [t.text for t in toks if t.kind is TokenKind.NAME]
+        assert names == ["git", "steam", "vim"]
+
     def test_dot_token(self):
         # Standalone '.' (profile-only scope) produces DOT; dots inside
         # names (e.g. pkgs.git) are consumed by the name scanner.

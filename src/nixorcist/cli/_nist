@@ -1,0 +1,33 @@
+#compdef nist nixorcist
+
+_nist() {
+  # Zsh performs brace expansion before command execution, which
+  # silently breaks the DSL collections ({a,b} becomes a b).  Disable
+  # it for the duration of the command (add "unsetopt brace_expand"
+  # to ~/.zshrc for permanent use).
+  setopt localoptions nobraceexpand
+
+  local -a expl
+  _arguments -C \
+    '--dry-run[show what would be installed without changing state]' \
+    '--debug[verbose diagnostic output]' \
+    '--config-root[DIR: nixos configuration root]' \
+    '--profile[PATH: active nix profile]' \
+    '--install/-I[install packages]' \
+    '--remove/-R[remove packages]' \
+    '--promote/-P[promote group to declarative]' \
+    '--demote/-D[demote group to imperative]' \
+    '--activate/-A[activate group]' \
+    '--deactivate/-E[deactivate group]' \
+    '--group/-G[select or create a group]' \
+    '--sequence/-S[sequence mode]' \
+    '*:: :->comp' && return
+
+  case "$state" in
+    comp)
+      _files || return
+      ;;
+  esac
+}
+
+_nist

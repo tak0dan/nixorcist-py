@@ -88,7 +88,10 @@ class _Options:
 
 
 def _paths(opts: _Options) -> Paths:
-    return Paths.from_env(override=opts.config_root).ensure()
+    # ``--config-root`` identifies the NixOS tree to inspect/promote; it must
+    # never redirect Nixorcist's own registry into that tree.  State remains
+    # under ``NIXORCIST_HOME`` (or its normal XDG default).
+    return Paths.from_env().ensure()
 
 
 def _backend(opts: _Options, logger: Logger):
@@ -217,6 +220,12 @@ def _cmd_status(argv: Sequence[str], opts: _Options) -> int:
         marker = "+" if st.profile else "-"
         grp = "+" if st.group else "-"
         print(f"  [{marker}] group={grp} requested={st.requested}")
+    # Show installation method summary
+    print("installation methods:")
+    for g in groups:
+        for pkg in g.packages:
+            method = pkg.install_method.value
+            print(f"  {g.name}/{pkg.requested}: {method}")
     return 0
 
 
@@ -582,7 +591,10 @@ def _cmd_validate(argv: Sequence[str], opts: _Options, head: str) -> int:
     if config_mode:
         model, _decls = discover_config(opts.config_root)
         root = model.root
-        print(f"configuration root: {root.directory} (flake={root.is_flake})")
+        print(
+            f"configuration root: {root.directory} "
+            f"(flake={root.is_flake}, layout={model.configuration_kind.value})"
+        )
         for group in manager.all_groups():
             print(validate_group(group, installed, model))
         return 0
@@ -683,6 +695,16 @@ def _execute_plan(
     for name in pl.deactivate:
         manager.deactivate(name)
         logger.ok(f"deactivated '{name}'")
+
+    # ---- obliterate groups ----------------------------------------------
+    for name in pl.obliterate:
+        manager.delete(name)
+        logger.ok(f"obliterated '{name}'")
+
+    # ---- yield groups --------------------------------------------------
+    for group_name, pkgs in pl.yield_groups:
+        manager.ensure(group_name)
+        logger.ok(f"yielded group '{group_name}'")
 
     # ---- declarative (promote / demote via promotion subsystem) ---------
     if pl.promote:

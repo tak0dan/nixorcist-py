@@ -178,7 +178,7 @@ def _parse_pattern(pattern: str) -> Predicate:
     count = pattern.count("%")
     if count == 2 and pattern.startswith("%") and pattern.endswith("%"):
         return Predicate("name", "contains", pattern[1:-1], has_pattern=True)
-    if count >= 3:
+    if count >= 2:
         segs = pattern.split("%")
         parts: list[tuple[str, str]] = []
         for idx, sub in enumerate(segs):

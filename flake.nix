@@ -26,7 +26,17 @@
               pkgs.python313
               pkgs.python313.pkgs.pytest
               pkgs.nix
+              pkgs.zsh
             ];
+            shellHook = ''
+              # Make ``python -m nixorcist`` and direct imports work from the
+              # source checkout, matching pytest's configured ``src`` path.
+              export PYTHONPATH="$PWD/src''${PYTHONPATH:+:$PYTHONPATH}"
+
+              # Zsh brace expansion silently breaks the DSL collections.
+              # Add to ~/.zshrc:  unsetopt brace_expand
+              true
+            '';
           };
         }
       );

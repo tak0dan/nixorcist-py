@@ -16,6 +16,7 @@ import socket
 import subprocess
 import time
 from dataclasses import dataclass
+from pathlib import Path
 
 from ..cli.diagnostics import Diagnostic, ErrorCode, NixorcistError
 from ..logging import Logger
@@ -38,7 +39,15 @@ def _default_command(tree: str, model: ConfigurationModel) -> list[str]:
     if model.root.is_flake:
         hostname = socket.gethostname() or "localhost"
         return ["nixos-rebuild", "build", "--flake", f"{tree}#{hostname}"]
-    config = tree + "/configuration.nix"
+    # A caller may deliberately promote a non-standard entry file such as
+    # ``plain_configuration.nix``. Preserve its path relative to the selected
+    # configuration root in the candidate tree rather than assuming the
+    # conventional filename.
+    try:
+        entry = model.root.entry_file.relative_to(model.root.directory)
+    except ValueError:
+        entry = Path(model.root.entry_file.name)
+    config = str(Path(tree) / entry)
     return ["nixos-rebuild", "build", "-I", f"nixos-config={config}"]
 
 
