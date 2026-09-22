@@ -119,14 +119,11 @@ _WHITESPACE = set(" \t\r\n")
 
 
 def _is_merged_flag(tok: Token) -> bool:
-    """True when a short-prefix token texts looks like ``-XY`` (two prefix
-    characters merged, e.g. ``-IG``, ``-PS``, ``-Ai``)."""
-    return (
-        tok.text.startswith("-")
-        and len(tok.text) == 3
-        and tok.text[1] in _PREFIX_KIND
-        and tok.text[2] in _PREFIX_KIND
-    )
+    """True when a short-prefix token text looks like ``-XY`` or ``-XYZ``
+    (multiple prefix characters merged, e.g. ``-IG``, ``-IGM``, ``-Ai``)."""
+    if not tok.text.startswith("-") or len(tok.text) < 3:
+        return False
+    return all(ch in _PREFIX_KIND for ch in tok.text[1:])
 
 
 class Lexer:
@@ -159,16 +156,15 @@ class Lexer:
             for flag, kind in _LONG_FLAGS.items():
                 if text.startswith(flag, pos):
                     return Token(kind, flag, pos, pos + len(flag))
-            # Short prefixes may be merged: ``-IG`` -> -I -G, ``-Ai`` -> -A -i.
+            # Short prefixes may be merged: ``-IGM`` -> -I -G -M, ``-Ai`` -> -A -i.
             if pos + 1 < n and text[pos + 1] in _PREFIX_KIND:
-                second = text[pos + 2] if pos + 2 < n else ""
-                if second in _PREFIX_KIND:
-                    # Merged pair; tokenize() splits it into two tokens.
-                    first_kind = _PREFIX_KIND[text[pos + 1]]
-                    return Token(first_kind, text[pos : pos + 3], pos, pos + 3)
-                return Token(
-                    _PREFIX_KIND[text[pos + 1]], text[pos : pos + 2], pos, pos + 2
-                )
+                # Find how many prefix chars follow
+                end = pos + 1
+                while end < n and text[end] in _PREFIX_KIND:
+                    end += 1
+                merged_text = text[pos:end]
+                first_kind = _PREFIX_KIND[text[pos + 1]]
+                return Token(first_kind, merged_text, pos, end)
             self._error(pos, f"unknown flag {ch!r}")
             raise AssertionError("unreachable")
 
@@ -209,11 +205,11 @@ class Lexer:
                 tokens.append(tok)
                 pos = tok.end
             else:
-                # "-XY" merges into two tokens: -X (op) -Y (modifier/op).
-                first = Token(tok.kind, "-" + tok.text[1], tok.offset, tok.offset + 2)
-                second_kind = _PREFIX_KIND[tok.text[2]]
-                second = Token(second_kind, "-" + tok.text[2], tok.offset + 1, tok.offset + 3)
-                tokens.extend([first, second])
+                # Split merged flags: "-IGM" -> -I, -G, -M
+                for i, ch in enumerate(tok.text[1:], start=1):
+                    kind = _PREFIX_KIND[ch]
+                    flag_tok = Token(kind, "-" + ch, tok.offset + i - 1, tok.offset + i + 1)
+                    tokens.append(flag_tok)
                 pos = tok.end
             if tok.kind is TokenKind.EOF:
                 break

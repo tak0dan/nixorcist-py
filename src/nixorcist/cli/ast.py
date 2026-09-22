@@ -235,6 +235,8 @@ class Command:
         When ``method_assignment`` is None, returns a tuple with the default
         ``install_method``.  Otherwise uses broadcast+positional pattern:
         broadcast methods apply to all groups, positional overrides per-group.
+        When ``-M`` flag was used but no methods are specified for a group,
+        returns an empty tuple (no override).
         """
         if self.method_assignment is None:
             return (self.install_method,)
@@ -245,7 +247,7 @@ class Command:
         if index < len(self.method_assignment.ordered):
             for m in self.method_assignment.ordered[index].methods:
                 methods.append(m.as_install_method())
-        return tuple(methods) if methods else (self.install_method,)
+        return tuple(methods)
 
     def explicit_packages(self) -> tuple[PackageRef, ...]:
         if self.assignment is None:

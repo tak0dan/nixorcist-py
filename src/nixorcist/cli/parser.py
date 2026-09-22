@@ -135,8 +135,14 @@ class Parser:
                     )
                 target = wanted
             elif kind is TokenKind.METHOD:
-                install_method = self._parse_install_method()
-                continue
+                # -M can be followed by a method name (old syntax) or {/# (new syntax)
+                if self.peek(1).kind in (TokenKind.LBRACE, TokenKind.BROADCAST):
+                    # New syntax: -IGM{imperative}... or -IGM#{imperative}...
+                    flags[kind] = True
+                else:
+                    # Old syntax: -M imperative
+                    install_method = self._parse_install_method()
+                    continue
             self.advance()
 
         # Parse method casting sections when -M flag is present
@@ -397,31 +403,98 @@ class Parser:
         """Try to parse method casting sections at the current position.
 
         Returns a MethodBroadcast if sections were found, None otherwise.
-        Method sections are ``{method}`` collections at the current position.
+        Method sections are ``{method}`` collections, either bare or after ``#``.
+        Broadcast sections continue until a second ``#`` (broadcast→ordered
+        transition).  Ordered sections after the transition are consumed
+        positionally.  Parsing stops when a ``#``-section doesn't contain
+        valid method names (i.e. it's a group or package section).
         """
-        if self.peek().kind is not TokenKind.LBRACE:
-            return None
-        # Peek ahead: is this a method collection or a package collection?
-        # Method collections contain only method names (imperative/declarative/auto)
-        # We try parsing and validate
         saved_i = self.i
-        try:
-            mb = self._parse_method_broadcast()
-            # Validate that all methods are valid
-            for sec in mb.sections:
-                for m in sec.methods:
+
+        # Collect broadcast sections
+        broadcast: list[MethodSet] = []
+        # Bare {method} sections (no #)
+        while self.peek().kind is TokenKind.LBRACE:
+            # Peek ahead to check if this is a method section
+            saved = self.i
+            try:
+                ms = self._parse_method_collection()
+                for m in ms.methods:
                     if m.name.lower() not in self._VALID_METHODS:
-                        self.i = saved_i
+                        self.i = saved
+                        # Not a method section, stop
+                        if broadcast:
+                            # We already consumed some method sections
+                            return self._finish_method_broadcast(broadcast, saved_i)
                         return None
-            for sec in mb.ordered:
-                for m in sec.methods:
-                    if m.name.lower() not in self._VALID_METHODS:
-                        self.i = saved_i
-                        return None
-            return mb
-        except NixorcistError:
-            self.i = saved_i
+                broadcast.append(ms)
+            except NixorcistError:
+                self.i = saved
+                if broadcast:
+                    return self._finish_method_broadcast(broadcast, saved_i)
+                return None
+
+        # Check for # at current position (method section with #)
+        if self.peek().kind is TokenKind.BROADCAST:
+            # Check if this # starts a method section or a group/package section
+            saved = self.i
+            self.advance()  # consume #
+            if self.peek().kind is TokenKind.LBRACE:
+                # Check if the { } contains method names
+                saved2 = self.i
+                try:
+                    ms = self._parse_method_collection()
+                    for m in ms.methods:
+                        if m.name.lower() not in self._VALID_METHODS:
+                            # Not a method section, roll back
+                            self.i = saved
+                            if broadcast:
+                                return self._finish_method_broadcast(broadcast, saved_i)
+                            return None
+                    broadcast.append(ms)
+                except NixorcistError:
+                    self.i = saved
+                    if broadcast:
+                        return self._finish_method_broadcast(broadcast, saved_i)
+                    return None
+            else:
+                # # not followed by { — not a method section
+                self.i = saved
+                if broadcast:
+                    return self._finish_method_broadcast(broadcast, saved_i)
+                return None
+
+        if not broadcast:
             return None
+
+        # Now look for transition to ordered mode
+        ordered: list[MethodSet] = []
+        if self.peek().kind is TokenKind.BROADCAST:
+            # Check if this # transitions to ordered methods
+            saved = self.i
+            self.advance()  # consume #
+            # Consume ordered method sections
+            while self.peek().kind is TokenKind.LBRACE:
+                saved2 = self.i
+                try:
+                    ms = self._parse_method_collection()
+                    for m in ms.methods:
+                        if m.name.lower() not in self._VALID_METHODS:
+                            self.i = saved2
+                            # Not a method, roll back the # and return
+                            self.i = saved
+                            return MethodBroadcast(tuple(broadcast), tuple(ordered))
+                    ordered.append(ms)
+                except NixorcistError:
+                    self.i = saved2
+                    self.i = saved
+                    return MethodBroadcast(tuple(broadcast), tuple(ordered))
+
+        return MethodBroadcast(tuple(broadcast), tuple(ordered))
+
+    def _finish_method_broadcast(self, broadcast: list[MethodSet], saved_i: int) -> MethodBroadcast:
+        """Helper to return a MethodBroadcast from accumulated broadcast sections."""
+        return MethodBroadcast(tuple(broadcast), ())
 
     # -- scope parsing --------------------------------------------------
     def _parse_scope(
