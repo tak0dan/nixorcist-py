@@ -79,6 +79,7 @@ nixorcist <subcommand> [...]        # group | status | promote | export | import
 | `-O`  | obliterate (`-Ooo` also sweeps orphans)     |
 | `-Y`  | yield (`-Yyy` also sweeps orphans)          |
 | `-S`  | sequence mode (last-successful-base chain)  |
+| `-M`  | method casting (per-group install method)   |
 | `-i` / `-d` | imperative / declarative target       |
 | `#`   | scope separator / broadcast assignment      |
 | `##`  | positional assignment                       |

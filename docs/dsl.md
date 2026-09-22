@@ -34,6 +34,7 @@ lex identically. The lexer and recursive-descent parser live in
 | `-E`         | deactivate (active := false)         |
 | `-A`         | activate                              |
 | `-S`         | sequence mode                         |
+| `-M`         | method casting (per-group install method) |
 | `-i`  / `-d` | imperative / declarative target       |
 | `NAME`       | identifiers (packages / groups / values) |
 
@@ -118,6 +119,22 @@ selected group (`§13`):
 ```
 
 `-G{A,B}##{1}{2}{3}` is a validation error (positional assignment overflow).
+
+## Method casting (-M)
+
+The `-M` flag sets install methods per-group using broadcast+positional
+sections:
+
+```
+-IGM#{imperative}#{declarative}{}{declarative}#{Dev}#{python gcc}
+#       broadcast         positional (slot 0, 1, 2)     groups   packages
+```
+
+- First `#{}` after `-M` = broadcast method (applies to all groups)
+- Second `#{}` = positional methods (slot 0, 1, ... per group)
+- Bare `{method}` sections also work: `-IGM{imperative}#{Dev}#{python}`
+
+Valid method names: `imperative`, `declarative`, `auto`.
 
 ## Modifiers
 

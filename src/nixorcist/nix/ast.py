@@ -490,7 +490,7 @@ class _Parser:
         while self.peek().kind != "]":
             if self.peek().kind == "EOF":
                 raise self.fail("unterminated list")
-            elements.append(self.parse_expr())
+            elements.append(self.parse_select())
         end = self.advance().end
         node = self.node("list", start, end)
         node.children = elements

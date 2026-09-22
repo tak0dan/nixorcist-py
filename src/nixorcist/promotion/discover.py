@@ -87,20 +87,36 @@ class ConfigurationModel:
 
     @property
     def preferred_declaration(self) -> PackageDeclaration | None:
-        """The declaration that should be edited first during promotion."""
-        candidates = [d for d in self.declarations if d.module == self.root.entry_file]
-        if candidates:
-            candidates.sort(key=lambda d: _FREQUENCY_PACKAGE_TARGETS.get(d.attrpath, 99))
-            return candidates[0]
-        visible = [d for d in self.declarations if self.root.directory in d.module.parents or d.module == self.root.entry_file]
-        if visible:
-            visible.sort(key=lambda d: (
-                _FREQUENCY_PACKAGE_TARGETS.get(d.attrpath, 99),
-                str(d.module),
-            ))
-            return visible[0]
+        """The declaration that should be edited first during promotion.
+
+        Preference order:
+        1. Declarations in imported modules (modular approach) -- preferred
+        2. Declarations in the entry configuration file (inline approach)
+        3. Any other discovered declarations
+        """
+        # First, try declarations in imported modules (modular approach)
+        modular_candidates = [
+            d for d in self.declarations
+            if d.module != self.root.entry_file
+            and self.root.directory in d.module.parents
+        ]
+        if modular_candidates:
+            modular_candidates.sort(key=lambda d: _FREQUENCY_PACKAGE_TARGETS.get(d.attrpath, 99))
+            return modular_candidates[0]
+
+        # Fall back to inline declarations in the entry configuration file
+        inline_candidates = [
+            d for d in self.declarations
+            if d.module == self.root.entry_file
+        ]
+        if inline_candidates:
+            inline_candidates.sort(key=lambda d: _FREQUENCY_PACKAGE_TARGETS.get(d.attrpath, 99))
+            return inline_candidates[0]
+
+        # Any other discovered declarations
         if self.declarations:
             return sorted(self.declarations, key=lambda d: _FREQUENCY_PACKAGE_TARGETS.get(d.attrpath, 99))[0]
+
         return None
 
     @property

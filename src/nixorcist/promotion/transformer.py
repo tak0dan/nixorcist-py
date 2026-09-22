@@ -34,13 +34,19 @@ def insert_into_list(text: str, list_node, snippets: list[str]) -> str:
     else:
         indent = _line_indent(text, list_node.start) + "  "
 
+    # Filter out snippets that already exist in the list
+    existing = {_normalise_element(c.value) for c in list_node.children}
+    new_snippets = [s for s in snippets if _normalise_element(s) not in existing]
+    if not new_snippets:
+        return text  # All snippets already present, nothing to do
+
     line_start = text.rfind("\n", list_node.start, close)
     closing_indent = _line_indent(text, close)
     if line_start >= 0 and text[line_start + 1 : close].strip() == "":
-        insertion = "".join(f"\n{indent}{snippet}" for snippet in snippets)
+        insertion = "".join(f"\n{indent}{snippet}" for snippet in new_snippets)
         return text[:line_start] + insertion + f"\n{closing_indent}" + text[close:]
 
-    insertion = "".join(f"\n{indent}{snippet}" for snippet in snippets)
+    insertion = "".join(f"\n{indent}{snippet}" for snippet in new_snippets)
     # Inline lists have no dedicated closing-bracket line. Convert just that
     # local fragment to multiline form rather than attaching ``]`` to the
     # final generated element.
