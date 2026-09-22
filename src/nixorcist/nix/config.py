@@ -36,7 +36,7 @@ def _entry_for_directory(directory: Path) -> Path | None:
     return None
 
 
-def discover_root(explicit: str | Path | None = None) -> NixOSRoot:
+def discover_root(explicit: str | Path | None = None, *, dry_run: bool = False) -> NixOSRoot:
     candidate: Path | None = None
 
     if explicit:

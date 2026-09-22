@@ -59,7 +59,7 @@ class NixProfile(PackageBackend):
                 )
             )
         refs = [f"{_FLAKE_PREFIX}#{p.attribute}" for p in packages]
-        self.command.run(["profile", "install", *self._base_args(), "--no-update-lock-file", *refs], check=True)
+        self.command.run(["profile", "add", *self._base_args(), "--no-update-lock-file", *refs], check=True)
 
     def remove(self, packages: list[ResolvedPackage]) -> None:
         if not packages:

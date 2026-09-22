@@ -442,10 +442,10 @@ class _Parser:
             self.advance()
             parts.append(self.advance())
         for tok in parts:
-            if tok.kind not in ("IDENT", "INT"):
+            if tok.kind not in ("IDENT", "INT", "STRING"):
                 raise self.fail(f"invalid attribute path segment {tok.value!r}")
         node = self.node("attrpath", start, parts[-1].end, value=".".join(t.value for t in parts))
-        node.attrpath = [t.value for t in parts]
+        node.attrpath = [t.value.strip('"') if t.kind == "STRING" else t.value for t in parts]
         return node
 
     def parse_atom(self) -> Node:
@@ -604,7 +604,7 @@ class _Parser:
             if tok.kind == "KEYWORD" and tok.value == "inherit":
                 entries.append(self.parse_inherit())
                 continue
-            if tok.kind == "IDENT":
+            if tok.kind in ("IDENT", "STRING"):
                 entry = self.parse_binding()
                 if entry.attrpath:
                     entries.append(entry)
@@ -662,11 +662,13 @@ def parse_module(text: str) -> Node:
 
 
 def module_attrset(node: Node) -> Node:
-    """Return the attribute set of interest after unwrapping lambdas/with."""
+    """Return the attribute set of interest after unwrapping lambdas/with/let."""
     current = node
     if current.kind == "lambda" and len(current.children) >= 2:
         current = current.children[-1]
     if current.kind == "with" and current.children:
+        current = current.children[-1]
+    if current.kind == "let" and current.children:
         current = current.children[-1]
     return current
 

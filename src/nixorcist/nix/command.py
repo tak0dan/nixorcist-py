@@ -72,14 +72,30 @@ class NixCommand:
 
     def _failure_diagnostic(self, result: CommandResult) -> Diagnostic:
         detail = result.combined().strip()
+        suggestion = None
         notes: tuple[str, ...] = ()
+
         if detail:
             lines = detail.splitlines()[:12]
-            notes = ("command:"+ " " + " ".join(result.argv), *("  " + ln for ln in lines))
+            notes = ("command: " + " ".join(result.argv), *("  " + ln for ln in lines))
+
+            detail_lower = detail.lower()
+            if "unfree" in detail_lower or "redistributable" in detail_lower or "valid = \"no\"" in detail_lower:
+                suggestion = (
+                    "the package may have a restrictive license; "
+                    "try adding it to nixpkgs.config.allowUnfreePredicate "
+                    "or use --impure"
+                )
+            elif "is not in the flake" in detail_lower or "not found" in detail_lower:
+                suggestion = "check the package name spelling; use 'nst search <name>' to verify"
+            elif "deprecated" in detail_lower and "install" in detail_lower:
+                suggestion = "nixorcist already uses 'nix profile add'; this warning can be ignored"
         else:
-            notes = ("command:" + " " + " ".join(result.argv),)
+            notes = ("command: " + " ".join(result.argv),)
+
         return Diagnostic(
             ErrorCode.NIX_COMMAND,
             f"nix command failed with exit code {result.returncode}",
+            suggestion=suggestion,
             notes=notes,
         )
