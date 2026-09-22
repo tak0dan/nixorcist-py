@@ -11,6 +11,7 @@
 
 { lib
 , python3
+, fetchFromGitHub
 }:
 
 python3.pkgs.buildPythonApplication rec {
@@ -18,16 +19,11 @@ python3.pkgs.buildPythonApplication rec {
   version = "0.1.0";
   format = "pyproject";
 
-  src = lib.cleanSourceWith {
-    src = ./.;
-    filter = name: type:
-      let base = baseNameOf name;
-      in !(type == "directory"
-        && (base == ".pytest_cache" || base == "__pycache__" || base == ".git"))
-        && base != "flake.lock"
-        && base != "flake.nix"
-        && base != "default.nix"
-        && base != "overlay.nix";
+  src = fetchFromGitHub {
+    owner = "tak0dan";
+    repo = "nixorcist-py";
+    rev = "8f63973b7cef3631f7d14f755603c34e783d7ce9";
+    sha256 = "Q0tidGA+XAeLOX6eE2NZX8JiDFfwZrvh9LR0FZdwZwQ=";
   };
 
   nativeBuildInputs = [ python3.pkgs.setuptools ];
@@ -41,7 +37,7 @@ python3.pkgs.buildPythonApplication rec {
 
   meta = with lib; {
     description = "Higher-level Nix package/profile management and configuration promotion tool";
-    homepage = "https://github.com/tak0dan/nixorcist";
+    homepage = "https://github.com/tak0dan/nixorcist-py";
     license = licenses.mit;
     maintainers = [ ];
     platforms = platforms.linux;

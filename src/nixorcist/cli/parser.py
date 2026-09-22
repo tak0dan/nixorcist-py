@@ -19,6 +19,9 @@ from ..cli.ast import (
     Command,
     GroupRef,
     InstallMethod,
+    MethodBroadcast,
+    MethodRef,
+    MethodSet,
     Operation,
     PackageRef,
     PackageSet,
@@ -136,6 +139,13 @@ class Parser:
                 continue
             self.advance()
 
+        # Parse method casting sections when -M flag is present
+        method_assignment: MethodBroadcast | None = None
+        if flags.get(TokenKind.METHOD, False):
+            ma = self._try_parse_method_sections()
+            if ma is not None:
+                method_assignment = ma
+
         groups, all_groups, profile_only, has_scope = self._parse_scope(groups_flag)
 
         # Second pass: consume modifiers that may appear after scope
@@ -206,6 +216,7 @@ class Parser:
             has_scope=has_scope,
             groups_flag=groups_flag,
             assignment=assignment,
+            method_assignment=method_assignment,
             expression=self.text,
             target=target,
             sequence=sequence,
@@ -322,6 +333,95 @@ class Parser:
             )
         self.advance()  # consume method name
         return InstallMethod(method_str)
+
+    # -- method casting sections (spec -M with broadcast+positional) -----
+
+    _VALID_METHODS = frozenset({"imperative", "declarative", "auto"})
+
+    def _parse_method_ref(self, tok: Token) -> MethodRef:
+        """Parse a single method name token into a MethodRef."""
+        method_str = tok.text.lower()
+        if method_str not in self._VALID_METHODS:
+            raise self._syntax_error(
+                tok.span,
+                f"unknown method {tok.text!r}",
+                "valid methods are: imperative, declarative, auto",
+            )
+        return MethodRef(tok.text, tok.offset, tok.end)
+
+    def _parse_method_collection(self) -> MethodSet:
+        """Parse a braced method collection: ``{imperative}`` or ``{imperative,declarative}``."""
+        lbrace = self.advance()
+        if lbrace.kind is not TokenKind.LBRACE:
+            raise self._syntax_error(lbrace.span, "expected '{'")
+        items: list[MethodRef] = []
+        while self.peek().kind is not TokenKind.RBRACE:
+            tok = self.peek()
+            if tok.kind is TokenKind.EOF:
+                raise self._syntax_error(lbrace.span, "unterminated collection: missing '}'")
+            if tok.kind is TokenKind.NAME:
+                items.append(self._parse_method_ref(self.advance()))
+                if self.peek().kind in (TokenKind.COMMA, TokenKind.PIPE, TokenKind.EXCLAMATION):
+                    self.advance()
+            elif tok.kind in (TokenKind.COMMA, TokenKind.PIPE, TokenKind.EXCLAMATION):
+                raise self._syntax_error(tok.span, "unexpected separator", "write {a,b}, not {,a} or {a,,b}")
+            else:
+                raise self._syntax_error(tok.span, f"expected a method name or '}}', found {tok.text!r}")
+        end = self.peek().end
+        self.advance()
+        return MethodSet(tuple(items), lbrace.offset, end)
+
+    def _parse_method_broadcast(self) -> MethodBroadcast:
+        """Parse broadcast+positional method sections.
+
+        Broadcast sections continue until a second ``#`` (broadcast→ordered
+        transition) or end-of-stream.  Ordered sections after the transition
+        are consumed positionally.
+        """
+        broadcast: list[MethodSet] = []
+        # Collect broadcast sections
+        while True:
+            if self.peek().kind is TokenKind.LBRACE:
+                broadcast.append(self._parse_method_collection())
+            else:
+                break
+        # Transition to ordered mode on second '#' or '##'
+        ordered: list[MethodSet] = []
+        if self.peek().kind in (TokenKind.BROADCAST, TokenKind.POSITIONAL):
+            self.advance()  # consume the transition token
+            while self.peek().kind is TokenKind.LBRACE:
+                ordered.append(self._parse_method_collection())
+        return MethodBroadcast(tuple(broadcast), tuple(ordered))
+
+    def _try_parse_method_sections(self) -> MethodBroadcast | None:
+        """Try to parse method casting sections at the current position.
+
+        Returns a MethodBroadcast if sections were found, None otherwise.
+        Method sections are ``{method}`` collections at the current position.
+        """
+        if self.peek().kind is not TokenKind.LBRACE:
+            return None
+        # Peek ahead: is this a method collection or a package collection?
+        # Method collections contain only method names (imperative/declarative/auto)
+        # We try parsing and validate
+        saved_i = self.i
+        try:
+            mb = self._parse_method_broadcast()
+            # Validate that all methods are valid
+            for sec in mb.sections:
+                for m in sec.methods:
+                    if m.name.lower() not in self._VALID_METHODS:
+                        self.i = saved_i
+                        return None
+            for sec in mb.ordered:
+                for m in sec.methods:
+                    if m.name.lower() not in self._VALID_METHODS:
+                        self.i = saved_i
+                        return None
+            return mb
+        except NixorcistError:
+            self.i = saved_i
+            return None
 
     # -- scope parsing --------------------------------------------------
     def _parse_scope(

@@ -675,10 +675,15 @@ def _execute_plan(
     # ---- group mutations ------------------------------------------------
     for name in pl.ensure_groups:
         manager.ensure(name)
+        logger.info(f"  ensured group '{name}'")
     for name, pkgs in pl.add_to_groups.items():
         manager.add(name, dedupe_packages(pkgs))
+        pkg_names = ", ".join(p.requested for p in pkgs)
+        logger.info(f"  added to group '{name}': {pkg_names}")
     for name, requested in pl.remove_from_groups.items():
         manager.remove(name, requested)
+        pkg_names = ", ".join(requested)
+        logger.info(f"  removed from group '{name}': {pkg_names}")
     if pl.remove_from_all_groups is not None:
         for gname in manager.list_groups():
             manager.remove(gname, pl.remove_from_all_groups)
@@ -686,10 +691,14 @@ def _execute_plan(
     # ---- profile ops ----------------------------------------------------
     if pl.wipe_profile:
         backend.remove_all()
+        logger.info("  wiped profile")
     elif pl.remove_from_profile:
         removed = backend.remove([ResolvedPackage(requested=r, attribute=r) for r in pl.remove_from_profile])
+        logger.info(f"  removed from profile: {', '.join(pl.remove_from_profile)}")
     if pl.install:
         backend.install(pl.install)
+        pkg_names = ", ".join(p.requested for p in pl.install)
+        logger.info(f"  installed into profile: {pkg_names}")
 
     # ---- state transitions (imperative) ---------------------------------
     for name in pl.deactivate:

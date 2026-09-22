@@ -78,6 +78,45 @@ class PackageSet:
 
 
 @dataclass(frozen=True)
+class MethodRef:
+    """A method name reference (imperative/declarative/auto)."""
+
+    name: str
+    start: int = 0
+    end: int = 0
+
+    def as_install_method(self) -> InstallMethod:
+        return InstallMethod(self.name.lower())
+
+    def span(self) -> Span:
+        return Span(self.start, self.end)
+
+
+@dataclass(frozen=True)
+class MethodSet:
+    """A single braced method collection: ``{imperative}``."""
+
+    methods: tuple[MethodRef, ...] = ()
+    start: int = 0
+    end: int = 0
+
+    def span(self) -> Span:
+        return Span(self.start, self.end)
+
+
+@dataclass(frozen=True)
+class MethodBroadcast:
+    """Broadcast + ordered method assignment.
+
+    ``sections`` are braced broadcast method sections.
+    ``ordered`` are positional slots introduced by a second ``#``.
+    """
+
+    sections: tuple[MethodSet, ...] = ()
+    ordered: tuple[MethodSet, ...] = ()
+
+
+@dataclass(frozen=True)
 class Broadcast:
     """Broadcast + ordered assignment (spec §§10-15).
 
@@ -133,6 +172,7 @@ class Command:
     has_scope: bool = False
     groups_flag: bool = False
     assignment: Broadcast | Positional | None = None
+    method_assignment: MethodBroadcast | None = None
     expression: str = ""
     target: Target = Target.NONE
     sequence: bool = False
@@ -188,6 +228,24 @@ class Command:
         if index < len(self.assignment.ordered):
             pkgs.extend(self.assignment.ordered[index].packages)
         return tuple(pkgs)
+
+    def method_for_group(self, index: int) -> tuple[InstallMethod, ...]:
+        """Return the install methods for the ``index``-th target group.
+
+        When ``method_assignment`` is None, returns a tuple with the default
+        ``install_method``.  Otherwise uses broadcast+positional pattern:
+        broadcast methods apply to all groups, positional overrides per-group.
+        """
+        if self.method_assignment is None:
+            return (self.install_method,)
+        methods: list[InstallMethod] = []
+        for sec in self.method_assignment.sections:
+            for m in sec.methods:
+                methods.append(m.as_install_method())
+        if index < len(self.method_assignment.ordered):
+            for m in self.method_assignment.ordered[index].methods:
+                methods.append(m.as_install_method())
+        return tuple(methods) if methods else (self.install_method,)
 
     def explicit_packages(self) -> tuple[PackageRef, ...]:
         if self.assignment is None:

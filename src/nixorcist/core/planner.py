@@ -650,9 +650,11 @@ def _resolve_slot(cmd: Command, index: int, resolver: "PackageResolver") -> list
     refs = cmd.assign_packages_for(index)
     names = [p.name for p in refs]
     resolved = resolver.resolve_many(names) if names else []
-    # Always set install_method based on command's install_method
+    # Use per-group method if available, otherwise fall back to command's install_method
     from ..core.models import ResolvedPackage as RP, InstallMethod as CoreIM
-    install_method = CoreIM(cmd.install_method.value)
+    methods = cmd.method_for_group(index)
+    # Use the last method in the list (positional override takes precedence)
+    install_method = CoreIM(methods[-1].value) if methods else CoreIM(cmd.install_method.value)
     resolved = [
         RP(
             requested=p.requested,
