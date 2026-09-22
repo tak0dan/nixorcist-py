@@ -85,9 +85,9 @@ class Plan:
             steps.append(f'ensure group "{name}"')
         if self.install:
             # Group packages by installation method for clearer output
-            imperative_pkgs = [p for p in self.install if p.install_method is InstallMethod.IMPERATIVE]
-            auto_pkgs = [p for p in self.install if p.install_method is InstallMethod.AUTO]
-            deferred_pkgs = [p for p in self.install if p.install_method is InstallMethod.DECLARATIVE]
+            imperative_pkgs = [p for p in self.install if p.install_method == InstallMethod.IMPERATIVE]
+            auto_pkgs = [p for p in self.install if p.install_method == InstallMethod.AUTO]
+            deferred_pkgs = [p for p in self.install if p.install_method == InstallMethod.DECLARATIVE]
             
             if imperative_pkgs:
                 names = ", ".join(f"{p.requested} -> {p.attribute}" for p in imperative_pkgs)
@@ -173,8 +173,9 @@ def plan(cmd: Command, manager: GroupManager, resolver: "PackageResolver") -> Pl
     resolved_explicit = resolver.resolve_many(explicit_names) if explicit_names else []
     
     # Set install_method based on command's install_method for explicit packages
-    if cmd.install_method is not InstallMethod.IMPERATIVE:
+    if cmd.install_method != InstallMethod.IMPERATIVE:
         from ..core.models import ResolvedPackage as RP
+        install_method = InstallMethod(cmd.install_method.value)
         resolved_explicit = [
             RP(
                 requested=p.requested,
@@ -182,7 +183,7 @@ def plan(cmd: Command, manager: GroupManager, resolver: "PackageResolver") -> Pl
                 source=p.source,
                 revision=p.revision,
                 resolution_timestamp=p.resolution_timestamp,
-                install_method=cmd.install_method,
+                install_method=install_method,
             )
             for p in resolved_explicit
         ]
@@ -650,7 +651,8 @@ def _resolve_slot(cmd: Command, index: int, resolver: "PackageResolver") -> list
     names = [p.name for p in refs]
     resolved = resolver.resolve_many(names) if names else []
     # Always set install_method based on command's install_method
-    from ..core.models import ResolvedPackage as RP
+    from ..core.models import ResolvedPackage as RP, InstallMethod as CoreIM
+    install_method = CoreIM(cmd.install_method.value)
     resolved = [
         RP(
             requested=p.requested,
@@ -658,7 +660,7 @@ def _resolve_slot(cmd: Command, index: int, resolver: "PackageResolver") -> list
             source=p.source,
             revision=p.revision,
             resolution_timestamp=p.resolution_timestamp,
-            install_method=cmd.install_method,
+            install_method=install_method,
         )
         for p in resolved
     ]
