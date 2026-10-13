@@ -23,6 +23,7 @@ test = ["pytest>=7"]
 [project.scripts]
 nixorcist = "nixorcist.cli.entry:main"
 nist = "nixorcist.cli.entry:main"
+uni = "uni.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

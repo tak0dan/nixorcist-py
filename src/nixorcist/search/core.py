@@ -137,6 +137,13 @@ def mark_default(ranked: list[Candidate], query: str) -> Candidate | None:
     if len(leaf) == 1:
         leaf[0].is_default = True
         return leaf[0]
+    # Sources whose install name is an ID (flatpak: com.discordapp.Discord):
+    # one unambiguous match on the package's own name.
+    qn = norm(query)
+    named = [c for c in ranked if qn and norm(c.pname) == qn and "broken" not in c.flags]
+    if len(named) == 1:
+        named[0].is_default = True
+        return named[0]
     return None
 
 
