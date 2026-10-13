@@ -135,6 +135,95 @@ Global flags (can appear anywhere before the DSL/subcommand body):
 - `--config-root DIR` — use a different config root (for tests / CI)
 - `--profile PATH` — operate on a non-default nix profile
 
+## Configuration layout (`nixorcist layout`)
+
+Nixorcist reads *how* your configuration declares packages and writes new
+groups the same way.
+
+| style    | what it looks like                                                        |
+| -------- | ------------------------------------------------------------------------- |
+| `inline` | lists in `configuration.nix`'s `systemPackages`, joined with `++`, named by a `# comment` |
+| `let`    | named lists in `configuration.nix`'s `let` block                           |
+| `module` | a file per group, referenced from `configuration.nix` (`imports`, or `import ./x.nix { inherit pkgs; }`) |
+| `hub`    | a file per group, aggregated by a hub file (e.g. `packages/default.nix`)   |
+
+```
+nixorcist layout                         # report: groups, styles, hubs, recommendation
+nixorcist layout --json
+nixorcist layout where kdePackages.kate  # which group declares it
+nixorcist layout add Dev gcc gdb         # new group, in the majority style
+nixorcist layout add Dev gcc --style hub # force a style
+nixorcist layout add Dev gcc --ask       # always ask when styles are mixed
+nixorcist layout extend Dev cmake        # add to an existing group
+nixorcist --dry-run layout add ...       # print the diff only
+```
+
+New files copy the shape of your existing group files (arguments, `with pkgs;`,
+directory, the way the hub references them). Edits are staged in a temporary
+copy and checked before anything is written: `--check parse` (default),
+`eval` (evaluates `config.environment.systemPackages`) or `build`
+(`nixos-rebuild build`).
+
+## Version-aware search (`nixorcist search`)
+
+Search answers from an index of **the NixOS release your configuration uses**
+(from `flake.lock`, the `<nixpkgs>` channel, `nixos-version`, or `--release`).
+`★` marks what a plain declaration of that name gets on that release.
+
+```
+nixorcist search discord                 # ★ discord, then discord-ptb, discord-canary, ...
+nixorcist search kate --release 25.11    # ★ kdePackages.kate (kate was renamed)
+nixorcist search steam --services        # + programs.steam.enable
+nixorcist search --update                # rebuild the index
+```
+
+`layout add` / `layout extend` resolve names the same way:
+
+```
+nixorcist layout add Editors kate        # writes kdePackages.kate on 25.11, kate on 24.05
+nixorcist layout add Chat discord --pick # choose variants in fzf
+nixorcist layout add Virt virt-manager --with-services
+#   -> virt-manager + programs.virt-manager.enable + virtualisation.libvirtd.enable
+nixorcist layout add Raw foo --raw       # no resolution, names as typed
+```
+
+Without `--with-services` you get a selector for the options a package has
+(or a hint when no terminal is attached). Options are written next to the
+group when it is its own module, otherwise into `configuration.nix`, and are
+skipped if already set anywhere.
+
+## uni
+
+`uni` is a unified package-manager interface for imperative distributions
+(Arch, Debian/Ubuntu, Fedora, openSUSE) plus Flatpak, Snap and `nix profile`,
+built on the same search engine.
+
+```
+uni search bat                 # every enabled source, ranked, ★ = exact match
+uni install bat discord        # native first, then by priority (flatpak, ...)
+uni install -s flatpak discord # one source
+uni install --pick discord     # choose in fzf across sources
+uni upgrade -y                 # every source
+uni pacman -S bat              # native syntax, translated to this system
+uni apt install bat            # ... names mapped via pkgmap when installed
+uni -n install bat             # dry run: print commands only
+uni sources | uni system
+```
+
+Source order lives in `~/.config/uni/config.toml`:
+
+```toml
+[priority]        # lower = tried first
+native = 10
+aur = 20
+flatpak = 30
+nix = 40
+snap = 50
+
+[disabled]
+sources = ["snap"]
+```
+
 ## State & storage
 
 - **`NIXORCIST_HOME`** (default `~/.config/nixorcist/`) holds:
