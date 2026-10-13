@@ -348,3 +348,44 @@ def test_broken_output_is_never_committed(tmp_path):
     with pytest.raises(LayoutApplyError):
         apply_edits(root, edits, check="parse")
     assert (root.directory / "configuration.nix").read_text() == before
+
+
+# --------------------------------------------------------------------------
+# Enabling NixOS options next to their packages
+# --------------------------------------------------------------------------
+
+from nixorcist.nix.layout import plan_enable_options  # noqa: E402
+
+
+def test_enable_options_go_into_the_groups_module(tmp_path):
+    root, layout = load(tmp_path, MIXED)
+    edits = plan_extend_group(layout, "games", ["virt-manager"])
+    edits = plan_enable_options(layout, ["programs.steam.enable", "virtualisation.libvirtd.enable"],
+                                near_group="games", edits=edits)
+    assert [e.path.name for e in edits] == ["games.nix"]
+    apply_and_reload(root, edits)
+    text = (root.directory / "groups/games.nix").read_text()
+    assert "programs.steam.enable = true;" in text and "virt-manager" in text
+
+
+def test_enable_options_for_inline_groups_go_into_entry(tmp_path):
+    root, layout = load(tmp_path, VANILLA)
+    edits = plan_enable_options(layout, ["services.flatpak.enable"], near_group="main")
+    apply_and_reload(root, edits)
+    assert "services.flatpak.enable = true;" in (root.directory / "configuration.nix").read_text()
+
+
+def test_enable_options_follow_a_group_created_in_the_same_plan(tmp_path):
+    root, layout = load(tmp_path, MIXED)
+    edits = plan_new_group(layout, "virt", ["virt-manager"], GroupStyle.MODULE)
+    edits = plan_enable_options(layout, ["virtualisation.libvirtd.enable"], near_group="virt", edits=edits)
+    apply_and_reload(root, edits)
+    assert "virtualisation.libvirtd.enable = true;" in (root.directory / "groups/virt.nix").read_text()
+
+
+def test_already_defined_options_are_left_alone(tmp_path):
+    files = dict(VANILLA)
+    files["configuration.nix"] = files["configuration.nix"].replace(
+        "  environment.systemPackages", "  services.flatpak.enable = false;\n\n  environment.systemPackages")
+    _, layout = load(tmp_path, files)
+    assert plan_enable_options(layout, ["services.flatpak.enable"]) == []

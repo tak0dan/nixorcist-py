@@ -2,7 +2,7 @@
 
 Supports both the compact DSL runner (``nixorcist -I pkgs.git``) and a set
 of subcommands (``group``, ``status``, ``promote``, ``export``, ``import``,
-``resolve``, ``layout``).
+``resolve``, ``layout``, ``search``).
 
 Global flags may appear anywhere before the DSL/subcommand body:
 
@@ -47,6 +47,7 @@ _SUBCOMMANDS = {
     "import",
     "resolve",
     "layout",
+    "search",
     "version",
     "help",
 }
@@ -866,6 +867,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _cmd_import(body[1:], opts)
     if head == "resolve":
         return _cmd_resolve(body[1:], opts)
+    if head == "search":
+        from .search_cmd import cmd_search
+
+        return cmd_search(body[1:], opts.config_root)
     if head == "layout":
         from .layout_cmd import cmd_layout
 
