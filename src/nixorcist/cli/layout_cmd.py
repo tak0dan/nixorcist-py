@@ -2,8 +2,20 @@
 
     nixorcist layout [show] [--json]
     nixorcist layout where <attr>...
-    nixorcist layout add <group> <attr>... [--style S] [--ask] [--check LEVEL]
-    nixorcist layout extend <group> <attr>... [--check LEVEL]
+    nixorcist layout add <group> <name>... [--style S] [--ask] [--check LEVEL]
+                                         [--pick] [--with-services] [--raw]
+                                         [--release R] [--source S]
+    nixorcist layout extend <group> <name>... [same flags, minus --style/--ask]
+
+Names are resolved against the package index of the release the configuration
+uses: ``kate`` becomes ``kdePackages.kate`` where it moved, and a name that does
+not exist without a single obvious replacement is an error.
+
+``--pick``           choose from the ranked candidates (fzf) instead of the default
+``--with-services``  also enable the NixOS options a package needs
+                     (programs.steam.enable, virtualisation.libvirtd.enable, ...);
+                     without it you are asked when a terminal is attached
+``--raw``            use the names exactly as typed (no index)
 
 ``--style``  inline | let | module | hub (default: the configuration's majority
              style; when there is no clear majority you are asked)
@@ -32,6 +44,7 @@ from ..nix.layout import (
 )
 from ..nix.layout_apply import CHECK_LEVELS, apply_edits, render_diff
 from .diagnostics import Diagnostic, ErrorCode, NixorcistError, Reporter
+from ..nix.layout import plan_enable_options
 
 _STYLE_HELP = {
     GroupStyle.INLINE: "another list in configuration.nix's systemPackages",
@@ -120,6 +133,48 @@ def _print_layout(layout) -> None:
         print(f"  (unparsed) {path}: {error}")
 
 
+def _resolve(queries, layout, config_root, *, pick, with_services, release, source):
+    """Resolve typed names to attributes of the configured release, and collect
+    the NixOS options to enable alongside them."""
+    from ..search.core import Candidate
+    from ..search.picker import pick as interactive_pick
+    from ..search.resolve import attach_services, resolve_query
+    from .search_cmd import open_index
+
+    try:
+        index = open_index(config_root, release=release, source=source)
+    except NixorcistError as exc:
+        print(f"warning: package index unavailable ({exc.diagnostic.message}); "
+              "using names as typed", file=sys.stderr)
+        return [q.removeprefix("pkgs.") for q in queries], []
+
+    attrs: list[str] = []
+    options: list[str] = []
+    declared = layout.declared_attrs()
+    for query in queries:
+        res = attach_services(index, resolve_query(index, query, pick=pick, declared=declared))
+        if res.note:
+            print(f"note: {res.note}", file=sys.stderr)
+        attrs.extend(a for a in res.attrs if a not in attrs)
+        for attr, links in res.services.items():
+            if with_services:
+                options.extend(l.option for l in links if l.option not in options)
+                continue
+            if sys.stdin.isatty():
+                choices = [Candidate(name=l.option, source="nixos option", description=l.reason)
+                           for l in links]
+                header = f"{attr} has NixOS options; select the ones to enable (Esc = none)"
+                for c in interactive_pick(choices, prompt="enable", header=header,
+                                              empty_means_none=True):
+                    if c.name not in options:
+                        options.append(c.name)
+            else:
+                hint = ", ".join(l.option for l in links)
+                print(f"hint: {attr} has NixOS options: {hint} (use --with-services to enable)",
+                      file=sys.stderr)
+    return attrs, options
+
+
 def cmd_layout(argv: Sequence[str], config_root, dry_run: bool) -> int:
     reporter = Reporter()
     argv = list(argv)
@@ -128,6 +183,11 @@ def cmd_layout(argv: Sequence[str], config_root, dry_run: bool) -> int:
         ask = _flag(argv, "--ask")
         style_arg = _take(argv, "--style")
         check = _take(argv, "--check") or "parse"
+        raw = _flag(argv, "--raw")
+        pick_mode = _flag(argv, "--pick")
+        with_services = _flag(argv, "--with-services")
+        release = _take(argv, "--release")
+        source = _take(argv, "--source") or "auto"
         if check not in CHECK_LEVELS:
             raise _err(f"unknown --check level {check!r}", suggestion="|".join(CHECK_LEVELS))
 
@@ -161,6 +221,12 @@ def cmd_layout(argv: Sequence[str], config_root, dry_run: bool) -> int:
             if len(argv) < 2:
                 raise _err(f"usage: nixorcist layout {action} <group> <attr>...")
             name, attrs = argv[0], argv[1:]
+            options: list[str] = []
+            if not raw:
+                attrs, options = _resolve(
+                    attrs, layout, config_root,
+                    pick=pick_mode, with_services=with_services, release=release, source=source,
+                )
             if action == "add":
                 if style_arg:
                     try:
@@ -181,9 +247,11 @@ def cmd_layout(argv: Sequence[str], config_root, dry_run: bool) -> int:
                 edits = plan_new_group(layout, name, attrs, style)
             else:
                 edits = plan_extend_group(layout, name, attrs)
-                if not edits:
-                    print(f"group {name} already declares all of: {' '.join(attrs)}")
-                    return 0
+            if options:
+                edits = plan_enable_options(layout, options, near_group=name, edits=edits)
+            if not edits:
+                print(f"group {name} already declares all of: {' '.join(attrs)}")
+                return 0
 
             print(render_diff(root, edits), end="")
             result = apply_edits(

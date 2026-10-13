@@ -982,6 +982,57 @@ def plan_extend_group(layout: ConfigLayout, name: str, attrs: list[str]) -> list
     return [FileEdit(group.file, new_text, old_text=text)]
 
 
+def plan_enable_options(
+    layout: ConfigLayout,
+    options: list[str],
+    *,
+    near_group: str | None = None,
+    edits: list[FileEdit] | None = None,
+) -> list[FileEdit]:
+    """Set ``<option> = true;`` for each option not already defined.
+
+    Options go next to the group they belong to when that group is its own
+    NixOS module (so ``games.nix`` carries both ``steam`` and
+    ``programs.steam.enable``); otherwise into the entry configuration.
+    ``edits`` lets this compose with edits planned for the same files.
+    """
+    editor = _Editor()
+    for e in edits or []:
+        editor.files[e.path] = e
+    entry = layout.root.entry_file.resolve()
+    target_file = entry
+    if near_group:
+        group = layout.group(near_group)
+        if group is not None and group.mechanism is Mechanism.NIXOS_MODULE:
+            target_file = group.file
+        elif group is None:
+            # a group being created in this same plan: find its new module file
+            for e in edits or []:
+                if e.created and e.path.stem == near_group and "systemPackages" in e.new_text:
+                    target_file = e.path
+    for option in options:
+        path = tuple(option.split("."))
+        if not all(_IDENT_RE.match(p) for p in path):
+            raise LayoutError(f"{option!r} is not a plain option path")
+        if _option_defined(layout, path, editor):
+            continue
+        _insert_binding(editor, target_file, path, "true")
+    return editor.edits()
+
+
+def _option_defined(layout: ConfigLayout, path: tuple[str, ...], editor: _Editor) -> bool:
+    files = {Path(k) for k, m in layout.graph.modules.items() if m.parsed}
+    files |= set(editor.files)
+    for f in files:
+        try:
+            ast = parse_module(editor.text(f))
+        except (OSError, NixParseError):
+            continue
+        if find_package_binding(ast, path) is not None:
+            return True
+    return False
+
+
 def _find_list_at(ast: Node, start: int) -> Node | None:
     for node in ast.walk():
         if node.kind == "list" and node.start == start:
